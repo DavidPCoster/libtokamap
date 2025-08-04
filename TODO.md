@@ -1,4 +1,4 @@
-- [ ] Make mapping values case insensitive
+- [x] ~~Make mapping values case insensitive~~
 - [x] ~~Remove references to IDSs~~
 - [x] ~~Replace reinterpret_cast with bit_cast~~ (still exist in map_arguments.hpp)
 - [x] ~~Replace boost::split with std::views::split~~

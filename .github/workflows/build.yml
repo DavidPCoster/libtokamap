@@ -58,4 +58,4 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
       - name: Examples
-        run: ./build/libtokamap/examples/simple_mapper/simple_mapper
+        run: ./build/examples/simple_mapper/simple_mapper
