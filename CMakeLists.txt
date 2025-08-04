@@ -1,9 +1,29 @@
+cmake_minimum_required( VERSION 3.15 )
+
 # Project details
-# project(
-#     LibTokaMap
-#     VERSION 0.1.0
-#     LANGUAGES CXX
-# )
+project(
+    LibTokaMap
+    VERSION 0.1.0
+    LANGUAGES CXX
+)
+
+# Extra cmake modules to find libraries
+list(
+    APPEND CMAKE_MODULE_PATH
+    ${CMAKE_SOURCE_DIR}/cmake
+    ${CMAKE_SOURCE_DIR}/cmake/Modules
+)
+
+# Set project options
+include( StandardSettings )
+include( StaticAnalyzers )
+include( Utils )
+
+add_clang_format_target()
+
+if( ENABLE_TESTING )
+    enable_testing()
+endif()
 
 # Specify C++ standard for all targets
 set( CMAKE_CXX_STANDARD 20 )
