@@ -235,6 +235,8 @@ class TypedDataArray
 
     [[nodiscard]] char* buffer() const { return m_buffer; }
 
+    [[nodiscard]] bool is_owning() const { return m_owning; }
+
     [[nodiscard]] char* release()
     {
         char* ptr = m_buffer;

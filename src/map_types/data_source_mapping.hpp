@@ -7,7 +7,6 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
-#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -34,22 +33,13 @@ class DataSourceMapping : public Mapping
 {
   public:
     DataSourceMapping() = delete;
-    DataSourceMapping(const std::string& data_source_name, DataSourceArgs data_source_args, std::optional<float> offset,
+    DataSourceMapping(DataSource* m_data_source, DataSourceArgs data_source_args, std::optional<float> offset,
                       std::optional<float> scale, std::optional<std::string> slice,
                       std::shared_ptr<libtokamap::RamCache> ram_cache);
-
-    static void register_data_source(const std::string& name, std::unique_ptr<DataSource> data_source)
-    {
-        m_data_sources[name] = std::move(data_source);
-    }
-
-    static void unregister_data_source(const std::string& name) { m_data_sources.erase(name); }
 
     [[nodiscard]] TypedDataArray map(const MapArguments& arguments) const override;
 
   private:
-    static std::unordered_map<std::string, std::unique_ptr<DataSource>> m_data_sources;
-
     DataSource* m_data_source;
     DataSourceArgs m_data_source_args;
     std::optional<float> m_offset;

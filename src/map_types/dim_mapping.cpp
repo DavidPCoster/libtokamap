@@ -13,5 +13,9 @@ libtokamap::TypedDataArray libtokamap::DimMapping::map(const MapArguments& argum
     }
 
     auto array = arguments.entries.at(m_dim_probe)->map(arguments);
-    return TypedDataArray{array.size()};
+    if (array.rank() == 0) {
+        throw libtokamap::MappingError{"cannot use DIM_PROBE on rank 0 mapping '" + m_dim_probe + "'"};
+    }
+    // TODO: Add DIM_INDEX for selecting which dimension to return size of
+    return TypedDataArray{array.shape()[0]};
 }

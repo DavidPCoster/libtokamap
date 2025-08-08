@@ -1,1 +1,5 @@
 build/
+.zed/
+.cache/
+python/build/
+python/src/libtokamap.egg-info

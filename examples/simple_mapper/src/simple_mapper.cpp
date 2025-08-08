@@ -63,7 +63,7 @@ int main()
 
         std::filesystem::path data_root = root / "data";
         auto data_source = std::make_unique<JSONDataSource>(data_root);
-        libtokamap::DataSourceMapping::register_data_source("JSON", std::move(data_source));
+        mapping_handler.register_data_source("JSON", std::move(data_source));
 
         auto schema_root = root.parent_path().parent_path() / "schemas";
         nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},

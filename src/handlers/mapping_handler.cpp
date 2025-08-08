@@ -100,7 +100,8 @@ void validate(const nlohmann::json& json, const valijson::Schema& schema)
     }
 }
 
-void uppercase_keys(nlohmann::json& data) {
+void uppercase_keys(nlohmann::json& data)
+{
     for (auto& entry : data) {
         nlohmann::json new_entry;
         if (entry.is_object()) {
@@ -112,7 +113,7 @@ void uppercase_keys(nlohmann::json& data) {
     }
 }
 
-nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema, bool to_upper=false)
+nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
     if (to_upper) {
@@ -325,7 +326,8 @@ void init_value_mapping(libtokamap::MappingStore& map_store, const libtokamap::M
 
 void init_data_source_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
                               const nlohmann::json& value, const nlohmann::json& group_attributes,
-                              std::shared_ptr<libtokamap::RamCache>& ram_cache)
+                              std::shared_ptr<libtokamap::RamCache>& ram_cache,
+                              const libtokamap::DataSourceRegistry& data_sources)
 {
     if (!value.contains("DATA_SOURCE")) {
         throw libtokamap::ConfigurationError{"required DATA_SOURCE argument not provided in DATA_SOURCE mapping '" +
@@ -349,7 +351,12 @@ void init_data_source_mapping(libtokamap::MappingStore& map_store, const libtoka
         apply_config(args, plugin_config_map, data_source_name);
     }
 
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::DataSourceMapping>(data_source_name, args, offset,
+    if (!data_sources.contains(data_source_name)) {
+        throw libtokamap::DataSourceError{"data source " + data_source_name + " not registered"};
+    }
+    auto* data_source = data_sources.at(data_source_name).get();
+
+    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::DataSourceMapping>(data_source, args, offset,
                                                                                         scale, slice, ram_cache));
 }
 
@@ -376,7 +383,8 @@ void init_custom_mapping(libtokamap::MappingStore& map_store, const libtokamap::
 }
 
 libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohmann::json& group_attributes,
-                                       std::shared_ptr<libtokamap::RamCache> ram_cache)
+                                       std::shared_ptr<libtokamap::RamCache> ram_cache,
+                                       const libtokamap::DataSourceRegistry& data_sources)
 {
     // const auto& attributes = m_experiment_register[experiment].group_globals[group_name];
     libtokamap::MappingStore map_store;
@@ -395,7 +403,8 @@ libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohman
                 init_value_mapping(map_store, mapping_name, parsed_value);
                 break;
             case MappingType::DATA_SOURCE:
-                init_data_source_mapping(map_store, mapping_name, parsed_value, group_attributes, ram_cache);
+                init_data_source_mapping(map_store, mapping_name, parsed_value, group_attributes, ram_cache,
+                                         data_sources);
                 break;
             case MappingType::DIM:
                 init_dim_mapping(map_store, mapping_name, parsed_value);
@@ -478,10 +487,17 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
         constexpr bool to_upper = true;
         auto mappings_json = load_json(partition_directory / "mappings.json", m_mappings_schema, to_upper);
         validate(mappings_json, m_mappings_schema);
-        mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals, m_ram_cache);
+        mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals, m_ram_cache, m_data_sources);
 
         experiment_mapping.group_mappings[group_name][partition_attributes] = std::move(mapping_pair);
     }
 
     experiment_mapping.is_loaded = true;
 }
+
+void libtokamap::MappingHandler::register_data_source(const std::string& name, std::unique_ptr<DataSource> data_source)
+{
+    m_data_sources[name] = std::move(data_source);
+}
+
+void libtokamap::MappingHandler::unregister_data_source(const std::string& name) { m_data_sources.erase(name); }

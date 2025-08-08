@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <typeindex>
+#include <unordered_map>
 #include <utility>
 
 #include "map_types/map_arguments.hpp"
@@ -17,6 +18,10 @@ struct PluginList;
 
 namespace libtokamap
 {
+
+class DataSource;
+
+using DataSourceRegistry = std::unordered_map<std::string, std::unique_ptr<libtokamap::DataSource>>;
 
 class MappingHandler
 {
@@ -31,9 +36,13 @@ class MappingHandler
     [[nodiscard]] TypedDataArray map(const std::string& experiment, const std::string& path, std::type_index data_type,
                                      int rank, const nlohmann::json& extra_attributes);
 
+    void register_data_source(const std::string& name, std::unique_ptr<DataSource> data_source);
+    void unregister_data_source(const std::string& name);
+
   private:
     void load_experiment(const ExperimentName& experiment, const nlohmann::json& attributes);
 
+    DataSourceRegistry m_data_sources;
     ExperimentRegisterStore m_experiment_register;
     bool m_init;
 

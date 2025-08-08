@@ -1,0 +1,6 @@
+CompileFlags:
+  Add:
+    - "--include-directory=/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/include/python3.13"
+    - "--include-directory=/Users/jhollocombe/Projects/LibTest/venv/lib/python3.13/site-packages/numpy/_core/include"
+    - "--include-directory=../src"
+    - "--include-directory=../include"

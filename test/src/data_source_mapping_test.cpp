@@ -31,7 +31,6 @@ TEST_CASE("Creating new PluginMapping", "[plugin_mapping]")
     SECTION("Create mock data source")
     {
         auto test_source = std::make_unique<TestDataSource>();
-        DataSourceMapping::register_data_source("TEST", std::move(test_source));
 
         DataSourceArgs request_args = {};
         std::optional<float> offset = {};
@@ -39,7 +38,7 @@ TEST_CASE("Creating new PluginMapping", "[plugin_mapping]")
         std::optional<std::string> slice = {};
         std::optional<std::string> function = {};
         std::shared_ptr<libtokamap::RamCache> ram_cache = nullptr;
-        auto mapping = std::make_unique<DataSourceMapping>("TEST", request_args, offset, scale, slice, ram_cache);
+        auto mapping = std::make_unique<DataSourceMapping>(test_source.get(), request_args, offset, scale, slice, ram_cache);
         REQUIRE(mapping != nullptr);
     }
 }
