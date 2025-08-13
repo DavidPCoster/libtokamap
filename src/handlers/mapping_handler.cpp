@@ -32,6 +32,7 @@
 #include "map_types/value_mapping.hpp"
 #include "utils/algorithm.hpp"
 #include "utils/indices.hpp"
+#include "utils/library_loader.hpp"
 #include "utils/mapping_locator.hpp"
 #include "utils/ram_cache.hpp"
 #include "utils/syntax_parser.hpp"
@@ -376,15 +377,21 @@ void init_expr_mapping(libtokamap::MappingStore& map_store, const libtokamap::Ma
 }
 
 void init_custom_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
-                         const nlohmann::json& value)
+                         const nlohmann::json& value, const std::vector<libtokamap::LibraryFunction>& library_functions)
 {
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::CustomMapping>(
-                                            value["CUSTOM_TYPE"].get<libtokamap::CustomMapType_t>()));
+    std::vector<std::filesystem::path> library_paths = {};
+    auto library_name = value["LIBRARY"].get<libtokamap::LibraryName>();
+    auto function_name = value["FUNCTION"].get<libtokamap::FunctionName>();
+    auto input_map = value["INPUTS"].get<libtokamap::CustomMappingInputMap>();
+    auto params = value["PARAMETERS"];
+    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::CustomMapping>(library_functions, library_name,
+                                                                                    function_name, input_map, params));
 }
 
-libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohmann::json& group_attributes,
-                                       std::shared_ptr<libtokamap::RamCache> ram_cache,
-                                       const libtokamap::DataSourceRegistry& data_sources)
+} // namespace
+
+libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohmann::json& data,
+                                                                   const nlohmann::json& group_attributes)
 {
     // const auto& attributes = m_experiment_register[experiment].group_globals[group_name];
     libtokamap::MappingStore map_store;
@@ -403,8 +410,8 @@ libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohman
                 init_value_mapping(map_store, mapping_name, parsed_value);
                 break;
             case MappingType::DATA_SOURCE:
-                init_data_source_mapping(map_store, mapping_name, parsed_value, group_attributes, ram_cache,
-                                         data_sources);
+                init_data_source_mapping(map_store, mapping_name, parsed_value, group_attributes, m_ram_cache,
+                                         m_data_sources);
                 break;
             case MappingType::DIM:
                 init_dim_mapping(map_store, mapping_name, parsed_value);
@@ -413,7 +420,7 @@ libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohman
                 init_expr_mapping(map_store, mapping_name, parsed_value);
                 break;
             case MappingType::CUSTOM:
-                init_custom_mapping(map_store, mapping_name, parsed_value);
+                init_custom_mapping(map_store, mapping_name, parsed_value, m_library_functions);
                 break;
             default:
                 break;
@@ -421,8 +428,6 @@ libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohman
     }
     return map_store;
 }
-
-} // namespace
 
 void libtokamap::MappingHandler::init(const nlohmann::json& config)
 {
@@ -450,6 +455,12 @@ void libtokamap::MappingHandler::init(const nlohmann::json& config)
 
     m_cache_enabled = m_ram_cache != nullptr;
     m_init = true;
+
+    if (config.contains("custom_library_paths")) {
+        std::vector<std::filesystem::path> paths =
+            config.at("custom_library_paths").get<std::vector<std::filesystem::path>>();
+        m_library_functions = load_libraries(paths);
+    }
 }
 
 void libtokamap::MappingHandler::load_experiment(const ExperimentName& experiment, const nlohmann::json& attributes)
@@ -487,7 +498,7 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
         constexpr bool to_upper = true;
         auto mappings_json = load_json(partition_directory / "mappings.json", m_mappings_schema, to_upper);
         validate(mappings_json, m_mappings_schema);
-        mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals, m_ram_cache, m_data_sources);
+        mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals);
 
         experiment_mapping.group_mappings[group_name][partition_attributes] = std::move(mapping_pair);
     }

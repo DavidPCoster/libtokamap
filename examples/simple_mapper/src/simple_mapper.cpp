@@ -11,6 +11,7 @@
 #include <string>
 #include <typeindex>
 #include <utility>
+#include <vector>
 
 #include "json_data_source.hpp"
 
@@ -50,6 +51,7 @@ void map_all(libtokamap::MappingHandler& mapping_handler, const std::string& map
         }
         map(mapping_handler, mapping, path + "/flux/time");
         map(mapping_handler, mapping, path + "/flux/data");
+        map(mapping_handler, mapping, path + "/flux/dot_product");
     }
 }
 } // namespace
@@ -65,11 +67,15 @@ int main()
         auto data_source = std::make_unique<JSONDataSource>(data_root);
         mapping_handler.register_data_source("JSON", std::move(data_source));
 
+        std::vector<std::string> custom_library_paths = {
+            root.parent_path().parent_path() / "build" / "examples" / "simple_mapper" };
+
         auto schema_root = root.parent_path().parent_path() / "schemas";
         nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},
                                  {"mapping_schema", (schema_root / "mappings.schema.json").string()},
                                  {"globals_schema", (schema_root / "globals.schema.json").string()},
-                                 {"mapping_config_schema", (schema_root / "mappings.cfg.schema.json").string()}};
+                                 {"mapping_config_schema", (schema_root / "mappings.cfg.schema.json").string()},
+                                 {"custom_library_paths", custom_library_paths}};
         mapping_handler.init(config);
 
         const char* mapping = "EXAMPLE";

@@ -77,10 +77,20 @@
     "custom": {
       "properties": {
         "MAP_TYPE": { "const": "CUSTOM" },
-        "CUSTOM_TYPE": { "type": "string" },
+        "LIBRARY": { "type": "string" },
+        "FUNCTION": { "type": "string" },
+        "INPUTS": {
+          "type": "object",
+          "patternProperties": {
+            "^.*$": {
+              "type": "string"
+            }
+          }
+        },
+        "PARAMETERS": { "type": "object" },
         "COMMENT": { "type": "string" }
       },
-      "required": ["MAP_TYPE", "CUSTOM_TYPE"],
+      "required": ["MAP_TYPE", "LIBRARY", "FUNCTION", "INPUTS", "PARAMETERS"],
       "additionalProperties": false
     }
   }

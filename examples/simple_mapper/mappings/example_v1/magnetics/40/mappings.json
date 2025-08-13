@@ -56,5 +56,15 @@
     "ARGS": {
       "signal": "coils/{{ #0 }}/flux/data"
     }
+  },
+  "coil[#]/flux/dot_product": {
+    "MAP_TYPE": "CUSTOM",
+    "LIBRARY": "custom",
+    "FUNCTION": "dot_product",
+    "INPUTS": {
+      "lhs": "coil[#]/flux/time",
+      "rhs": "coil[#]/flux/data"
+    },
+    "PARAMETERS": {}
   }
 }

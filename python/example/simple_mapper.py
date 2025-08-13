@@ -3,7 +3,7 @@ from typing import override
 import numpy as np
 import json
 import libtokamap
-from quopri import decode
+
 
 class JSONDataSource(libtokamap.DataSource):
     def __init__(self, data_root: Path):
@@ -67,6 +67,7 @@ def main():
         map_all(mapper, mapping)
     except Exception as e:
         print(f"{e}")
+
 
 if __name__ == "__main__":
     main()

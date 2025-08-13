@@ -1,43 +1,44 @@
 #include "map_types/custom_mapping.hpp"
 
-#include <cstring>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
+#include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
+#include "utils/library_loader.hpp"
 
-/**
- * @brief Entry map function, overriden from parent Mapping class
- *
- * @note expression is only of float type for testing purposes
- * @param interface IDAM_PLUGIN_INTERFACE for access to request and data_block
- * @param entries unordered map of all mappings loaded for this experiment and
- * group
- * @param global_data global JSON object used in templating
- * @return int error_code
- */
-libtokamap::TypedDataArray libtokamap::CustomMapping::map(const MapArguments& /*arguments*/) const
+libtokamap::CustomMapping::CustomMapping(const std::vector<libtokamap::LibraryFunction>& functions,
+                                         const libtokamap::LibraryName& library_name,
+                                         const libtokamap::FunctionName& function_name, CustomMappingInputMap input_map,
+                                         CustomMappingParams params)
+    : m_input_map(std::move(input_map)), m_params(std::move(params))
 {
-    switch (m_custom_type) {
-        case CustomMapType_t::MASTU_helloworld:
-            return MASTU_helloworld();
+    bool found = false;
+    for (const auto& function : functions) {
+        if (function.library_name == library_name && function.function_name == function_name) {
+            m_function = function;
+            found = true;
             break;
-        case CustomMapType_t::DRAFT_helloworld:
-            return DRAFT_helloworld();
-            break;
-        case CustomMapType_t::INVALID:
-            return {};
-            break;
+        }
     }
-    return {};
-}
+    if (!found) {
+        throw libtokamap::TokaMapError("Function '" + function_name + "' not found in library '" + library_name + "'");
+    }
+};
 
-libtokamap::TypedDataArray libtokamap::CustomMapping::MASTU_helloworld()
+libtokamap::TypedDataArray libtokamap::CustomMapping::map(const MapArguments& arguments) const
 {
-    const char* string = "Hello World from MASTU";
-    return TypedDataArray{ string };
-}
+    CustomMappingInputs inputs;
+    for (const auto& [name, mapping] : m_input_map) {
+        if (!arguments.entries.contains(mapping)) {
+            throw libtokamap::TokaMapError("Input '" + mapping + "' not found in mappings");
+        }
+        const auto& input = arguments.entries.at(mapping);
+        inputs.insert({name, input->map(arguments)});
+    }
 
-libtokamap::TypedDataArray libtokamap::CustomMapping::DRAFT_helloworld()
-{
-    const char* string = "Hello World from DRAFT";
-    return TypedDataArray{ string };
+    return m_function.function(inputs, m_params);
 }

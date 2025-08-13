@@ -33,11 +33,12 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 # Group source files by functionality for better organization
 set( UTIL_SOURCES
     src/utils/indices.cpp
+    src/utils/library_loader.cpp
+    src/utils/mapping_locator.cpp
     src/utils/ram_cache.cpp
     src/utils/scale_offset.cpp
     src/utils/subset.cpp
     src/utils/syntax_parser.cpp
-    src/utils/mapping_locator.cpp
 )
 
 set( MAP_TYPE_SOURCES
