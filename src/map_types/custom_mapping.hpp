@@ -25,14 +25,14 @@ class CustomMapping : public Mapping
                            CustomMappingParams params);
 
     CustomMapping(CustomMapping&& other) = default;
-    CustomMapping(const CustomMapping& other) = default;
+    CustomMapping(const CustomMapping& other) = delete;
     CustomMapping& operator=(CustomMapping&& other) = default;
-    CustomMapping& operator=(const CustomMapping& other) = default;
+    CustomMapping& operator=(const CustomMapping& other) = delete;
 
     [[nodiscard]] TypedDataArray map(const MapArguments& arguments) const override;
 
   private:
-    LibraryFunction m_function;
+    const LibraryFunction* m_function;
     CustomMappingInputMap m_input_map;
     CustomMappingParams m_params;
 };

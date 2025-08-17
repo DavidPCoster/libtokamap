@@ -38,6 +38,9 @@ class MappingHandler
     void register_data_source(const std::string& name, std::unique_ptr<DataSource> data_source);
     void unregister_data_source(const std::string& name);
 
+    void register_custom_function(LibraryFunction custom_function);
+    void unregister_custom_function(const std::string& library_name, const std::string& function_name);
+
   private:
     void load_experiment(const ExperimentName& experiment, const nlohmann::json& attributes);
     libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohmann::json& group_attributes);

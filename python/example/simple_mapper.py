@@ -1,8 +1,22 @@
 from pathlib import Path
-from typing import override
+from typing import Any, override
 import numpy as np
 import json
 import libtokamap
+
+
+def dot_product(inputs: dict[str, np.array], _params: dict[str, Any]) -> np.array:
+    if 'lhs' not in inputs:
+        raise ValueError("lhs is required")
+    if 'rhs' not in inputs:
+        raise ValueError("rhs is required")
+    lhs = inputs['lhs']
+    rhs = inputs['rhs']
+    if lhs.size != rhs.size:
+        raise ValueError("lhs and rhs must have the same size")
+    if lhs.ndim != 1 or rhs.ndim != 1:
+        raise ValueError("lhs and rhs must be 1-dimensional")
+    return np.array(np.dot(lhs, rhs))
 
 
 class JSONDataSource(libtokamap.DataSource):
@@ -52,6 +66,7 @@ def map_all(mapper: libtokamap.Mapper, mapping: str):
             map(mapper, mapping, f"magnetics/coil[{coil}]/position[{position}]/z")
         map(mapper, mapping, f"magnetics/coil[{coil}]/flux/time")
         map(mapper, mapping, f"magnetics/coil[{coil}]/flux/data")
+        map(mapper, mapping, f"magnetics/coil[{coil}]/flux/dot_product")
 
 
 def main():
@@ -60,7 +75,9 @@ def main():
     mapper = libtokamap.Mapper(str(mapping_directory))
 
     data_root = root / "examples" / "simple_mapper" / "data"
-    mapper.register("JSON", JSONDataSource(data_root))
+    mapper.register_data_source("JSON", JSONDataSource(data_root))
+
+    mapper.register_custom_function("custom", "dot_product", dot_product)
 
     mapping = "EXAMPLE"
     try:

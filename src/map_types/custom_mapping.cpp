@@ -1,6 +1,6 @@
 #include "map_types/custom_mapping.hpp"
 
-#include <filesystem>
+#include <algorithm>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -16,17 +16,11 @@ libtokamap::CustomMapping::CustomMapping(const std::vector<libtokamap::LibraryFu
                                          CustomMappingParams params)
     : m_input_map(std::move(input_map)), m_params(std::move(params))
 {
-    bool found = false;
-    for (const auto& function : functions) {
-        if (function.library_name == library_name && function.function_name == function_name) {
-            m_function = function;
-            found = true;
-            break;
-        }
-    }
-    if (!found) {
+    auto found = std::ranges::find_if(functions, [&](auto& func) { return func.matches(library_name, function_name); });
+    if (found == functions.end()) {
         throw libtokamap::TokaMapError("Function '" + function_name + "' not found in library '" + library_name + "'");
     }
+    m_function = &*found;
 };
 
 libtokamap::TypedDataArray libtokamap::CustomMapping::map(const MapArguments& arguments) const
@@ -40,5 +34,5 @@ libtokamap::TypedDataArray libtokamap::CustomMapping::map(const MapArguments& ar
         inputs.insert({name, input->map(arguments)});
     }
 
-    return m_function.function(inputs, m_params);
+    return m_function->call(inputs, m_params);
 }

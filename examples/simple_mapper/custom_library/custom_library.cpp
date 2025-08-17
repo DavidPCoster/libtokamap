@@ -1,8 +1,10 @@
 #include <libtokamap.hpp>
 
 #include <cstddef>
+#include <memory>
 #include <span>
 #include <typeindex>
+#include <utility>
 #include <vector>
 
 #include "utils/library_loader.hpp"
@@ -47,5 +49,6 @@ libtokamap::TypedDataArray dot_product(libtokamap::CustomMappingInputs& inputs,
 
 extern "C" void LibTokaMapEntry(libtokamap::LibraryEntryInterface& interface)
 {
-    interface.functions.emplace_back("custom", "dot_product", dot_product);
+    auto dot_product_wrapper = std::make_unique<libtokamap::LibraryFunctionPointer>(dot_product);
+    interface.functions.emplace_back("custom", "dot_product", std::move(dot_product_wrapper));
 }

@@ -2,6 +2,7 @@ import clibtokamap
 
 from abc import ABC, abstractmethod
 import numpy as np
+from typing import Callable, Any
 
 
 class DataSource(ABC):
@@ -36,7 +37,7 @@ class Mapper:
         """
         self._mapper = clibtokamap.create(mapping_path)
 
-    def register(self, name: str, data_source: DataSource) -> None:
+    def register_data_source(self, name: str, data_source: DataSource) -> None:
         """Register a data source with the mapper.
 
         Args:
@@ -46,7 +47,17 @@ class Mapper:
         Throws:
             LibTokaMapError: If the data source is not a subclass of DataSource.
         """
-        clibtokamap.register(self._mapper, name, data_source)
+        clibtokamap.register_data_source(self._mapper, name, data_source)
+
+    def register_custom_function(self, library_name: str, function_name: str, function: Callable[[dict[str, np.array], dict[str, Any]], np.array]) -> None:
+        """Register a custom function with the mapper.
+
+        Args:
+            library_name: The name of the library for the function.
+            function_name: The name of the function to register.
+            function: The function to register.
+        """
+        clibtokamap.register_custom_function(self._mapper, library_name, function_name, function)
 
     def map(self, experiment: str, path: str, attributes: dict[str, str] | None = None) -> np.ndarray:
         """Map the data from the data sources.

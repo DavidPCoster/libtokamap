@@ -1,5 +1,6 @@
 #include "mapping_handler.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstddef>
 #include <cxxabi.h>
@@ -512,3 +513,22 @@ void libtokamap::MappingHandler::register_data_source(const std::string& name, s
 }
 
 void libtokamap::MappingHandler::unregister_data_source(const std::string& name) { m_data_sources.erase(name); }
+
+void libtokamap::MappingHandler::register_custom_function(LibraryFunction custom_function)
+{
+    m_library_functions.emplace_back(std::move(custom_function));
+}
+
+void libtokamap::MappingHandler::unregister_custom_function(const std::string& library_name,
+                                                            const std::string& function_name)
+{
+    auto element =
+        std::ranges::find_if(m_library_functions, [&library_name, &function_name](const LibraryFunction& func) {
+            return func.matches(library_name, function_name);
+        });
+    if (element != m_library_functions.end()) {
+        m_library_functions.erase(element);
+    } else {
+        throw std::runtime_error("Custom function not found");
+    }
+}

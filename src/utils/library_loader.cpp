@@ -2,7 +2,9 @@
 
 #include <dlfcn.h>
 #include <filesystem>
+#include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "exceptions/exceptions.hpp"
@@ -30,7 +32,7 @@ std::vector<libtokamap::LibraryFunction> load_library_functions(const std::files
     libtokamap::LibraryEntryInterface entry_interface;
     entry_function(entry_interface);
 
-    return entry_interface.functions;
+    return std::move(entry_interface.functions);
 }
 
 } // namespace
@@ -48,7 +50,8 @@ std::vector<libtokamap::LibraryFunction> libtokamap::load_libraries(std::vector<
         for (const auto& entry : std::filesystem::directory_iterator(path)) {
             if (entry.is_regular_file() && entry.path().extension() == ".dylib") {
                 auto functions = load_library_functions(entry);
-                library_functions.insert(library_functions.end(), functions.begin(), functions.end());
+                library_functions.insert(library_functions.end(), std::make_move_iterator(functions.begin()),
+                                         std::make_move_iterator(functions.end()));
             }
         }
     }

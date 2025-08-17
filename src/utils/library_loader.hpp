@@ -2,11 +2,14 @@
 
 #include <filesystem>
 #include <functional>
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
 
 namespace libtokamap
@@ -18,12 +21,66 @@ using CustomMappingParams = nlohmann::json;
 using LibraryName = std::string;
 using FunctionName = std::string;
 
-using FunctionType = std::function<TypedDataArray(CustomMappingInputs&, const CustomMappingParams&)>;
+class LibraryFunctionWrapper
+{
+  public:
+    LibraryFunctionWrapper() = default;
+    virtual libtokamap::TypedDataArray operator()(CustomMappingInputs& inputs,
+                                                  const CustomMappingParams& params) const = 0;
+    virtual ~LibraryFunctionWrapper() = default;
 
-struct LibraryFunction {
-    LibraryName library_name;
-    FunctionName function_name;
-    FunctionType function;
+    LibraryFunctionWrapper(const LibraryFunctionWrapper& other) = delete;
+    LibraryFunctionWrapper(LibraryFunctionWrapper&& other) = default;
+    LibraryFunctionWrapper& operator=(LibraryFunctionWrapper&& other) = default;
+    LibraryFunctionWrapper& operator=(const LibraryFunctionWrapper& other) = delete;
+};
+
+class LibraryFunctionPointer : public LibraryFunctionWrapper
+{
+  public:
+    using FunctionType = std::function<TypedDataArray(CustomMappingInputs&, const CustomMappingParams&)>;
+    explicit LibraryFunctionPointer(FunctionType function) : m_function(std::move(function)) {}
+    libtokamap::TypedDataArray operator()(CustomMappingInputs& inputs, const CustomMappingParams& params) const override
+    {
+        return m_function(inputs, params);
+    }
+
+  private:
+    FunctionType m_function;
+};
+
+class LibraryFunction
+{
+  public:
+    LibraryFunction(LibraryName library_name, FunctionName function_name,
+                    std::unique_ptr<LibraryFunctionWrapper> function)
+        : m_library_name(std::move(library_name)), m_function_name(std::move(function_name)),
+          m_function(std::move(function))
+    {
+        if (m_function == nullptr) {
+            throw TokaMapError("Library function is null");
+        }
+    }
+    ~LibraryFunction() = default;
+    LibraryFunction(const LibraryFunction& other) = delete;
+    LibraryFunction(LibraryFunction&& other) = default;
+    LibraryFunction& operator=(LibraryFunction&& other) = default;
+    LibraryFunction& operator=(const LibraryFunction& other) = delete;
+
+    [[nodiscard]] bool matches(const LibraryName& library_name, const FunctionName& function_name) const
+    {
+        return m_library_name == library_name && m_function_name == function_name;
+    }
+
+    [[nodiscard]] libtokamap::TypedDataArray call(CustomMappingInputs& inputs, const CustomMappingParams& params) const
+    {
+        return (*m_function)(inputs, params);
+    }
+
+  private:
+    LibraryName m_library_name;
+    FunctionName m_function_name;
+    std::unique_ptr<LibraryFunctionWrapper> m_function;
 };
 
 struct LibraryEntryInterface {
