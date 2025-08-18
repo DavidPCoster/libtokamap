@@ -47,7 +47,7 @@ libtokamap::TypedDataArray dot_product(libtokamap::CustomMappingInputs& inputs,
 
 } // namespace
 
-extern "C" void LibTokaMapEntry(libtokamap::LibraryEntryInterface& interface)
+extern "C" void LibTokaMapLibraryLoader(libtokamap::LibraryEntryInterface& interface)
 {
     auto dot_product_wrapper = std::make_unique<libtokamap::LibraryFunctionPointer>(dot_product);
     interface.functions.emplace_back("custom", "dot_product", std::move(dot_product_wrapper));

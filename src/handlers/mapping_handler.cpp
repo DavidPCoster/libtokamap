@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <inja/inja.hpp>
+#include <iterator>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -457,10 +458,14 @@ void libtokamap::MappingHandler::init(const nlohmann::json& config)
     m_cache_enabled = m_ram_cache != nullptr;
     m_init = true;
 
-    if (config.contains("custom_library_paths")) {
+    if (config.contains("custom_function_libraries")) {
         std::vector<std::filesystem::path> paths =
-            config.at("custom_library_paths").get<std::vector<std::filesystem::path>>();
-        m_library_functions = load_libraries(paths);
+            config.at("custom_function_libraries").get<std::vector<std::filesystem::path>>();
+        for (const auto& custom_function_library : paths) {
+            auto library_functions = load_custom_functions(custom_function_library);
+            m_library_functions.insert(m_library_functions.end(), std::make_move_iterator(library_functions.begin()),
+                                       std::make_move_iterator(library_functions.end()));
+        }
     }
 }
 
@@ -507,9 +512,35 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
     experiment_mapping.is_loaded = true;
 }
 
-void libtokamap::MappingHandler::register_data_source(const std::string& name, std::unique_ptr<DataSource> data_source)
+void libtokamap::MappingHandler::register_data_source_factory(const std::string& factory_name,
+                                                              DataSourceFactory factory)
 {
-    m_data_sources[name] = std::move(data_source);
+    if (m_data_source_factories.contains(factory_name)) {
+        throw TokaMapError("Data source factory with name '" + factory_name + "' already exists");
+    }
+    m_data_source_factories[factory_name] = std::move(factory);
+}
+
+void libtokamap::MappingHandler::register_data_source_factory(const std::string& factory_name,
+                                                              const std::filesystem::path& library_path)
+{
+    if (m_data_source_factories.contains(factory_name)) {
+        throw TokaMapError("Data source factory with name '" + factory_name + "' already exists");
+    }
+    m_data_source_factories[factory_name] = libtokamap::load_data_source_factory(library_path);
+}
+
+void libtokamap::MappingHandler::register_data_source(const std::string& name, const std::string& factory_name,
+                                                      const DataSourceFactoryArgs& args)
+{
+    if (m_data_sources.contains(name)) {
+        throw TokaMapError("Data source with name '" + name + "' already exists");
+    }
+    if (!m_data_source_factories.contains(factory_name)) {
+        throw TokaMapError("Data source factory '" + factory_name + "' not found");
+    }
+    auto& data_source_factory = m_data_source_factories.at(factory_name);
+    m_data_sources[name] = data_source_factory(args);
 }
 
 void libtokamap::MappingHandler::unregister_data_source(const std::string& name) { m_data_sources.erase(name); }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <any>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -87,6 +88,17 @@ struct LibraryEntryInterface {
     std::vector<LibraryFunction> functions;
 };
 
-std::vector<libtokamap::LibraryFunction> load_libraries(std::vector<std::filesystem::path>& library_paths);
+std::vector<libtokamap::LibraryFunction> load_custom_functions(const std::filesystem::path& custom_function_library);
+
+class DataSource;
+
+using DataSourceFactoryArgs = std::unordered_map<std::string, std::any>;
+using DataSourceFactory = std::function<std::unique_ptr<DataSource>(const DataSourceFactoryArgs&)>;
+
+struct FactoryEntryInterface {
+    DataSourceFactory function;
+};
+
+DataSourceFactory load_data_source_factory(const std::filesystem::path& library_path);
 
 } // namespace libtokamap

@@ -68,6 +68,12 @@ inline DataType type_index_map(std::type_index type_index)
     if (type_index == std::type_index{typeid(double)}) {
         return DataType::Double;
     }
+    if (type_index == std::type_index{typeid(int64_t)}) {
+        return DataType::Int64;
+    }
+    if (type_index == std::type_index{typeid(uint64_t)}) {
+        return DataType::UInt64;
+    }
     return DataType::Unknown;
 }
 

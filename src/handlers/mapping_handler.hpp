@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "map_types/data_source_mapping.hpp"
 #include "map_types/map_arguments.hpp"
 #include "utils/library_loader.hpp"
 #include "utils/ram_cache.hpp"
@@ -23,6 +24,7 @@ namespace libtokamap
 class DataSource;
 
 using DataSourceRegistry = std::unordered_map<std::string, std::unique_ptr<libtokamap::DataSource>>;
+using DataSourceFactoryRegistry = std::unordered_map<std::string, DataSourceFactory>;
 
 class MappingHandler
 {
@@ -35,7 +37,9 @@ class MappingHandler
     [[nodiscard]] TypedDataArray map(const std::string& experiment, const std::string& path, std::type_index data_type,
                                      int rank, const nlohmann::json& extra_attributes);
 
-    void register_data_source(const std::string& name, std::unique_ptr<DataSource> data_source);
+    void register_data_source_factory(const std::string& factory_name, const std::filesystem::path& library_path);
+    void register_data_source_factory(const std::string& factory_name, DataSourceFactory factory);
+    void register_data_source(const std::string& name, const std::string& factory_name, const DataSourceFactoryArgs& args);
     void unregister_data_source(const std::string& name);
 
     void register_custom_function(LibraryFunction custom_function);
@@ -45,6 +49,7 @@ class MappingHandler
     void load_experiment(const ExperimentName& experiment, const nlohmann::json& attributes);
     libtokamap::MappingStore init_mappings(const nlohmann::json& data, const nlohmann::json& group_attributes);
 
+    DataSourceFactoryRegistry m_data_source_factories;
     DataSourceRegistry m_data_sources;
     ExperimentRegisterStore m_experiment_register;
     bool m_init = false;

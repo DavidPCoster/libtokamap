@@ -13,9 +13,10 @@
 namespace
 {
 
-using EntryFunction = void (*)(libtokamap::LibraryEntryInterface&);
+using LibraryEntryFunction = void (*)(libtokamap::LibraryEntryInterface&);
 
-constexpr const char* function_name = "LibTokaMapEntry";
+constexpr const char* library_loader = "LibTokaMapLibraryLoader";
+constexpr const char* factory_loader = "LibTokaMapFactoryLoader";
 
 std::vector<libtokamap::LibraryFunction> load_library_functions(const std::filesystem::path& library_path)
 {
@@ -24,37 +25,49 @@ std::vector<libtokamap::LibraryFunction> load_library_functions(const std::files
         throw libtokamap::TokaMapError("Failed to load library '" + library_path.string() + "'");
     }
 
-    void* function_pointer = dlsym(handle, function_name);
+    void* function_pointer = dlsym(handle, library_loader);
     if (function_pointer == nullptr) {
-        throw libtokamap::TokaMapError("Failed to load entry function");
+        throw libtokamap::TokaMapError("Failed to find entry function '" + std::string{ library_loader } + "'");
     }
 
-    auto entry_function = reinterpret_cast<EntryFunction>(function_pointer);
+    auto entry_function = reinterpret_cast<LibraryEntryFunction>(function_pointer);
     libtokamap::LibraryEntryInterface entry_interface;
     entry_function(entry_interface);
 
     return std::move(entry_interface.functions);
 }
 
+using FactoryEntryFunction = void (*)(libtokamap::FactoryEntryInterface&);
+
 } // namespace
 
-std::vector<libtokamap::LibraryFunction> libtokamap::load_libraries(std::vector<std::filesystem::path>& library_paths)
+libtokamap::DataSourceFactory libtokamap::load_data_source_factory(const std::filesystem::path& library_path)
 {
-    std::vector<libtokamap::LibraryFunction> library_functions;
-    for (auto& path : library_paths) {
-        if (!std::filesystem::exists(path)) {
-            throw libtokamap::TokaMapError("Library path '" + path.string() + "' does not exist");
-        }
-        if (!std::filesystem::is_directory(path)) {
-            throw libtokamap::TokaMapError("Invalid library path '" + path.string() + "'");
-        }
-        for (const auto& entry : std::filesystem::directory_iterator(path)) {
-            if (entry.is_regular_file() && entry.path().extension() == LibTokaMapSuffix) {
-                auto functions = load_library_functions(entry);
-                library_functions.insert(library_functions.end(), std::make_move_iterator(functions.begin()),
-                                         std::make_move_iterator(functions.end()));
-            }
-        }
+    void* handle = dlopen(library_path.c_str(), RTLD_LAZY);
+    if (handle == nullptr) {
+        throw libtokamap::TokaMapError("Failed to load library '" + library_path.string() + "'");
     }
-    return library_functions;
+
+    void* function_pointer = dlsym(handle, factory_loader);
+    if (function_pointer == nullptr) {
+        throw libtokamap::TokaMapError("Failed to find entry function '" + std::string{ factory_loader } + "'");
+    }
+
+    auto entry_function = reinterpret_cast<FactoryEntryFunction>(function_pointer);
+    libtokamap::FactoryEntryInterface entry_interface;
+    entry_function(entry_interface);
+
+    return entry_interface.function;
+}
+
+std::vector<libtokamap::LibraryFunction>
+libtokamap::load_custom_functions(const std::filesystem::path& custom_function_library)
+{
+    if (!std::filesystem::exists(custom_function_library)) {
+        throw libtokamap::TokaMapError("Library path '" + custom_function_library.string() + "' does not exist");
+    }
+    if (!std::filesystem::is_regular_file(custom_function_library) || custom_function_library.extension() != LibTokaMapSuffix) {
+        throw libtokamap::TokaMapError("Invalid library path '" + custom_function_library.string() + "'");
+    }
+    return load_library_functions(custom_function_library);
 }
