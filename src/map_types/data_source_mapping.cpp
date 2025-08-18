@@ -19,7 +19,14 @@ libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments
         }
     }
     TypedDataArray array = m_data_source->get(args, arguments, m_ram_cache.get());
-    update_array(array, m_slice, m_scale, m_offset);
+
+    // Render the slice string at runtime if it exists
+    std::optional<std::string> rendered_slice;
+    if (m_slice.has_value()) {
+        rendered_slice = inja::render(m_slice.value(), arguments.global_data);
+    }
+
+    update_array(array, rendered_slice, m_scale, m_offset);
     return array;
 }
 

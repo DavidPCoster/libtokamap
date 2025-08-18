@@ -143,11 +143,16 @@ void apply_scale_offset(libtokamap::TypedDataArray& input, std::optional<float> 
 
 std::vector<libtokamap::SubsetInfo> libtokamap::parse_slices(const std::string& slice, const std::vector<size_t>& shape)
 {
+    // Special case for scalar data with [0] slice - should return empty subsets (no slicing needed)
+    if (shape.empty() && slice == "[0]") {
+        return {};
+    }
+
     size_t dim_idx = 0;
     std::vector<libtokamap::SubsetInfo> subsets;
     for (const auto& token : ctre::search_all<token_re>(slice)) {
         if (dim_idx == shape.size()) {
-            throw libtokamap::ParameterError{"to many slices provided"};
+            throw libtokamap::ParameterError{"too many slices provided"};
         }
         subsets.push_back(parse_slice(token.get<1>(), shape[dim_idx]));
         ++dim_idx;
