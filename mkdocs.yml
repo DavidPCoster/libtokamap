@@ -2,3 +2,38 @@ site_name: LibTokaMap
 
 theme:
   name: material
+  palette:
+    - scheme: default
+      primary: blue
+      accent: light blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Using the Library: using-the-library.md
+  - Extending LibTokaMap:
+      - Creating a New Data Source: creating-data-source.md
+      - Creating Custom Function Libraries: creating-custom-functions.md
+
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.details
+
+plugins:
+  - search
+  - mkdocstrings
