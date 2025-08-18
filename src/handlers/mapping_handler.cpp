@@ -99,7 +99,7 @@ void validate(const nlohmann::json& json, const valijson::Schema& schema)
             msg << " - " << error.description << "\n\n";
             ++error_num;
         }
-        throw libtokamap::PathError{msg.str()};
+        throw libtokamap::SchemaError{msg.str()};
     }
 }
 
@@ -116,13 +116,12 @@ void uppercase_keys(nlohmann::json& data)
     }
 }
 
-nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema, bool to_upper = false)
+nlohmann::json load_json(const std::filesystem::path& file_path, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
     if (to_upper) {
         uppercase_keys(json);
     }
-    validate(json, schema);
     return json;
 }
 
@@ -395,34 +394,28 @@ void init_custom_mapping(libtokamap::MappingStore& map_store, const libtokamap::
 libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohmann::json& data,
                                                                    const nlohmann::json& group_attributes)
 {
-    // const auto& attributes = m_experiment_register[experiment].group_globals[group_name];
     libtokamap::MappingStore map_store;
     for (const auto& [mapping_name, value] : data.items()) {
-        // Parse syntactic sugar
-        auto parsed_value = libtokamap::parse(value);
-
-        if (!parsed_value.contains("MAP_TYPE")) {
+        if (!value.contains("MAP_TYPE")) {
             throw libtokamap::MappingError{"required MAP_TYPE argument not found in mapping '" + mapping_name + "'"};
         }
 
-        // TODO: make this case insensitive?
         using libtokamap::MappingType;
-        switch (parsed_value["MAP_TYPE"].get<MappingType>()) {
+        switch (value["MAP_TYPE"].get<MappingType>()) {
             case MappingType::VALUE:
-                init_value_mapping(map_store, mapping_name, parsed_value);
+                init_value_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::DATA_SOURCE:
-                init_data_source_mapping(map_store, mapping_name, parsed_value, group_attributes, m_ram_cache,
-                                         m_data_sources);
+                init_data_source_mapping(map_store, mapping_name, value, group_attributes, m_ram_cache, m_data_sources);
                 break;
             case MappingType::DIM:
-                init_dim_mapping(map_store, mapping_name, parsed_value);
+                init_dim_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::EXPR:
-                init_expr_mapping(map_store, mapping_name, parsed_value);
+                init_expr_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::CUSTOM:
-                init_custom_mapping(map_store, mapping_name, parsed_value, m_library_functions);
+                init_custom_mapping(map_store, mapping_name, value, m_library_functions);
                 break;
             default:
                 break;
@@ -484,7 +477,7 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
 
     const auto& mapping_dir = experiment_mapping.root_path;
 
-    auto top_level_globals = load_json(mapping_dir / "globals.json", m_globals_schema);
+    auto top_level_globals = load_json(mapping_dir / "globals.json");
     validate(top_level_globals, m_globals_schema);
     experiment_mapping.top_level_globals = top_level_globals;
 
@@ -497,12 +490,16 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
 
         MappingPair mapping_pair;
 
-        mapping_pair.globals = load_json(partition_directory / "globals.json", m_globals_schema);
+        mapping_pair.globals = load_json(partition_directory / "globals.json");
         validate(mapping_pair.globals, m_globals_schema);
         mapping_pair.globals.update(top_level_globals);
 
         constexpr bool to_upper = true;
-        auto mappings_json = load_json(partition_directory / "mappings.json", m_mappings_schema, to_upper);
+        auto mappings_json = load_json(partition_directory / "mappings.json", to_upper);
+        // Expand syntactic sugar before validation
+        for (const auto& [key, value] : mappings_json.items()) {
+            value = libtokamap::expand_syntactic_sugar(value);
+        }
         validate(mappings_json, m_mappings_schema);
         mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals);
 

@@ -3,12 +3,10 @@
 
 #include "utils/syntax_parser.hpp"
 
-// @path => { "MAP_TYPE": "FORWARD", "VALUE": "path" }
-
 TEST_CASE("Parse forward mapping", "[syntax_parser]") {
     SECTION("single element") {
         nlohmann::json input = "@FOO";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "FORWARD" },
             { "VALUE", "FOO" }
@@ -18,7 +16,7 @@ TEST_CASE("Parse forward mapping", "[syntax_parser]") {
 
     SECTION("path") {
         nlohmann::json input = "@/A/B/C";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "FORWARD" },
             { "VALUE", "/A/B/C" }
@@ -30,7 +28,7 @@ TEST_CASE("Parse forward mapping", "[syntax_parser]") {
 TEST_CASE("Parse value mapping", "[syntax_parser]") {
     SECTION("string value") {
         nlohmann::json input = "foo";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "foo" }
@@ -40,7 +38,7 @@ TEST_CASE("Parse value mapping", "[syntax_parser]") {
 
     SECTION("integer value") {
         nlohmann::json input = 3;
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", 3 }
@@ -50,7 +48,7 @@ TEST_CASE("Parse value mapping", "[syntax_parser]") {
 
     SECTION("float value") {
         nlohmann::json input = 3.14;
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", 3.14 }
@@ -67,7 +65,7 @@ TEST_CASE("Parse value mapping", "[syntax_parser]") {
 TEST_CASE("Parse indices expansion", "[syntax_parser]") {
     SECTION("simple index") {
         nlohmann::json input = "{{ #3 }}";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "{{ indices.3 }}" }
@@ -78,7 +76,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
     //coils/#0/name
     SECTION("index in path") {
         nlohmann::json input = "foo/{{ #0 }}/bar";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "foo/{{ indices.0 }}/bar" }
@@ -88,7 +86,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
 
     SECTION("multiple indices in path") {
         nlohmann::json input = "foo/{{ #0 }}/bar/{{ #1 }}/baz";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "foo/{{ indices.0 }}/bar/{{ indices.1 }}/baz" }
@@ -103,7 +101,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
                 { "signal", "{{ #0 }}" },
             } }
         };
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "PLUGIN" },
             { "ARGS", {
@@ -116,7 +114,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
     // "{{ A[#N] }}" => "{{ at(A, indices.N) }}"
     SECTION("index into map/array") {
         nlohmann::json input = "{{ foo[#2] }}";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "{{ at(foo, indices.2) }}" }
@@ -126,7 +124,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
 
     SECTION("index into map/array with field") {
         nlohmann::json input = "{{ foo[#1].bar }}";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "{{ at(foo, indices.1).bar }}" }
@@ -136,7 +134,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
 
     SECTION("nested index into map/array") {
         nlohmann::json input = "{{ (foo[#0].bar)[#1] }}";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "{{ at(at(foo, indices.0).bar, indices.1) }}" }
@@ -146,7 +144,7 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
 
     SECTION("nested index into map/array with field") {
         nlohmann::json input = "{{ (foo[#0].bar)[#1].baz }}";
-        nlohmann::json result = libtokamap::parse(input);
+        nlohmann::json result = libtokamap::expand_syntactic_sugar(input);
         nlohmann::json expected = {
             { "MAP_TYPE", "VALUE" },
             { "VALUE", "{{ at(at(foo, indices.0).bar, indices.1).baz }}" }
@@ -158,19 +156,19 @@ TEST_CASE("Parse indices expansion", "[syntax_parser]") {
 TEST_CASE("indices expansion and bracket matching", "[process_string_node]") {
     SECTION("indices replace without syntactic sugar") {
         nlohmann::json input = "{{ #0 }}";
-        nlohmann::json result = libtokamap::process_string_node(input);
+        nlohmann::json result = libtokamap::detail::process_string_node(input);
         nlohmann::json expected = "{{ indices.0 }}";
         REQUIRE(result == expected);
     }
     SECTION("indices replace for arithmetic templating") {
         nlohmann::json input = "{{ #0 + 1 }}";
-        nlohmann::json result = libtokamap::process_string_node(input);
+        nlohmann::json result = libtokamap::detail::process_string_node(input);
         nlohmann::json expected = "{{ indices.0 + 1 }}";
         REQUIRE(result == expected);
     }
     SECTION("nested bracket replace (bracket matching)") {
         nlohmann::json input = "{{ foo[bar[#0].TYPE] }}";
-        nlohmann::json result = libtokamap::process_string_node(input);
+        nlohmann::json result = libtokamap::detail::process_string_node(input);
         nlohmann::json expected = "{{ at(foo, at(bar, indices.0).TYPE) }}";
         REQUIRE(result == expected);
     }
