@@ -92,11 +92,18 @@ configure_file(
     @ONLY
 )
 
+configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/include/config.hpp.in
+    ${CMAKE_CURRENT_BINARY_DIR}/include/config.hpp
+    @ONLY
+)
+
 add_library( libtokamap ${SOURCES} )
 target_include_directories( libtokamap
     PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/src
       ${CMAKE_CURRENT_SOURCE_DIR}/ext_include
+      ${CMAKE_CURRENT_BINARY_DIR}/include
     INTERFACE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
@@ -157,5 +164,7 @@ endif()
 list( TRANSFORM SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 list( TRANSFORM HEADERS PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 
+set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
+set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
 set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
 set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )

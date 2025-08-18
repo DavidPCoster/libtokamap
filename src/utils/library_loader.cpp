@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "config.hpp"
 #include "exceptions/exceptions.hpp"
 
 namespace
@@ -48,7 +49,7 @@ std::vector<libtokamap::LibraryFunction> libtokamap::load_libraries(std::vector<
             throw libtokamap::TokaMapError("Invalid library path '" + path.string() + "'");
         }
         for (const auto& entry : std::filesystem::directory_iterator(path)) {
-            if (entry.is_regular_file() && entry.path().extension() == ".dylib") {
+            if (entry.is_regular_file() && entry.path().extension() == LibTokaMapSuffix) {
                 auto functions = load_library_functions(entry);
                 library_functions.insert(library_functions.end(), std::make_move_iterator(functions.begin()),
                                          std::make_move_iterator(functions.end()));

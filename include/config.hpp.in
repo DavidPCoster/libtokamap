@@ -1,0 +1,3 @@
+#pragma once
+
+constexpr const char* LibTokaMapSuffix = "@CMAKE_SHARED_LIBRARY_SUFFIX@";

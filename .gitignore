@@ -3,3 +3,6 @@ build/
 .cache/
 python/build/
 python/src/libtokamap.egg-info
+.clangd
+.ropeproject
+venv
