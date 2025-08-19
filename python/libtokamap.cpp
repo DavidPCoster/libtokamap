@@ -1,4 +1,3 @@
-#include "map_types/map_arguments.hpp"
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 
 #include <Python.h>
@@ -27,16 +26,23 @@ namespace
 PyObject* LibTokaMapError = nullptr;
 
 PyObject* libtokamap_create(PyObject* module, PyObject* args);
-PyObject* libtokamap_register_data_source(PyObject* module, PyObject* const* args, Py_ssize_t nargs);
-PyObject* libtokamap_register_custom_function(PyObject* module, PyObject* const* args, Py_ssize_t nargs);
+PyObject* libtokamap_register_data_source_factory(PyObject* module, PyObject* args);
+PyObject* libtokamap_register_data_source(PyObject* module, PyObject* args);
+PyObject* libtokamap_register_python_data_source(PyObject* module, PyObject* args);
+PyObject* libtokamap_load_custom_function_library(PyObject* module, PyObject* args);
+PyObject* libtokamap_register_custom_function(PyObject* module, PyObject* args);
 PyObject* libtokamap_map(PyObject* module, PyObject* const* args, Py_ssize_t nargs);
 
 PyMethodDef libtokamap_methods[] = {
     {"create", libtokamap_create, METH_O, "Create a new Mapper."},
-    {"register_data_source", reinterpret_cast<PyCFunction>(libtokamap_register_data_source), METH_FASTCALL,
-     "Register a DataSource."},
-    {"register_custom_function", reinterpret_cast<PyCFunction>(libtokamap_register_custom_function), METH_FASTCALL,
-     "Register a custom function."},
+    {"register_data_source_factory", libtokamap_register_data_source_factory, METH_VARARGS,
+     "Register a DataSource factory."},
+    {"register_data_source", libtokamap_register_data_source, METH_VARARGS, "Register a DataSource."},
+    {"register_python_data_source", libtokamap_register_python_data_source, METH_VARARGS,
+     "Register a Python DataSource."},
+    {"load_custom_function_library", libtokamap_load_custom_function_library, METH_VARARGS,
+     "Load a custom function library."},
+    {"register_custom_function", libtokamap_register_custom_function, METH_VARARGS, "Register a custom function."},
     {"map", reinterpret_cast<PyCFunction>(libtokamap_map), METH_FASTCALL, "Map the given path to data."},
     {nullptr, nullptr, 0, nullptr} /* Sentinel */
 };
@@ -305,10 +311,7 @@ int PyMapper_init(PyMapper* self, PyObject* args, PyObject* Py_UNUSED(kwds))
         auto root = std::filesystem::path{__FILE__};
         root = std::filesystem::absolute(root).parent_path().parent_path();
         auto schema_root = root / "schemas";
-        nlohmann::json config = {{"mapping_directory", mapping_directory},
-                                 {"mapping_schema", (schema_root / "mappings.schema.json").string()},
-                                 {"globals_schema", (schema_root / "globals.schema.json").string()},
-                                 {"mapping_config_schema", (schema_root / "mappings.cfg.schema.json").string()}};
+        nlohmann::json config = {{"mapping_directory", mapping_directory}, {"schemas_directory", schema_root.string()}};
         self->cpp_mapper->init(config);
     } catch (const std::exception& e) {
         PyErr_SetString(LibTokaMapError, e.what());
@@ -333,28 +336,122 @@ PyObject* libtokamap_create(PyObject* Py_UNUSED(module), PyObject* args)
     return PyObject_CallOneArg(reinterpret_cast<PyObject*>(&PyMapperType), args);
 }
 
-PyObject* libtokamap_register_data_source(PyObject* Py_UNUSED(module), PyObject* const* args, Py_ssize_t nargs)
+PyObject* get_pathlib_path_type()
 {
-    if (nargs != 3) {
-        PyErr_SetString(LibTokaMapError, "register_data_source must be called with 3 arguments");
+    PyObject* pathlib = PyImport_ImportModule("pathlib");
+    if (!pathlib) {
+        PyErr_SetString(LibTokaMapError, "Failed to import pathlib module");
         return nullptr;
     }
 
-    PyObject* py_mapper = args[0];
-    PyObject* data_source_name = args[1];
-    PyObject* data_source = args[2];
+    PyObject* path_type = PyObject_GetAttrString(pathlib, "Path");
 
-    auto data_source_name_string = to_string(data_source_name);
-    if (!data_source_name_string) {
-        PyErr_SetString(LibTokaMapError, "First argument to register_data_source must be a string");
+    if (!path_type || !PyType_Check(path_type)) {
+        Py_DECREF(pathlib);
+        Py_XDECREF(path_type);
+        PyErr_SetString(LibTokaMapError, "pathlib.Path type not found or is not a type object");
+        return nullptr;
+    }
+
+    Py_DECREF(pathlib);
+    return path_type;
+}
+
+PyObject* libtokamap_register_data_source(PyObject* Py_UNUSED(module), PyObject* args)
+{
+    PyObject* py_mapper = nullptr;
+    const char* data_source_name = nullptr;
+    const char* data_source_factory_name = nullptr;
+    PyObject* py_factory_args = nullptr;
+
+    if (!PyArg_ParseTuple(args, "OssO", &py_mapper, &data_source_name, &data_source_factory_name, &py_factory_args)) {
         return nullptr;
     }
 
     if (!PyObject_IsInstance(py_mapper, reinterpret_cast<PyObject*>(&PyMapperType))) {
-        PyErr_SetString(LibTokaMapError, "Second argument to register_data_source must be a PyMapper");
+        PyErr_SetString(LibTokaMapError, "First argument to register_data_source must be a PyMapper");
         return nullptr;
     }
 
+    libtokamap::DataSourceFactoryArgs factory_args;
+
+    if (!PyDict_Check(py_factory_args)) {
+        PyErr_SetString(LibTokaMapError, "Fourth argument to register_data_source must be a dictionary");
+        return nullptr;
+    }
+
+    PyObject* path_type = get_pathlib_path_type();
+
+    PyObject* key = nullptr;
+    PyObject* value = nullptr;
+    Py_ssize_t pos = 0;
+    while (PyDict_Next(py_factory_args, &pos, &key, &value)) {
+        auto key_string = to_string(key);
+        if (!key_string) {
+            return nullptr;
+        }
+        if (PyUnicode_Check(value)) {
+            auto value_string = to_string(value);
+            if (!value_string) {
+                return nullptr;
+            }
+            factory_args[key_string.value()] = value_string.value();
+        } else if (PyLong_Check(value)) {
+            factory_args[key_string.value()] = PyLong_AsLong(value);
+        } else if (PyObject_IsInstance(value, path_type)) {
+            PyObject* path_str = PyObject_Str(value);
+            if (!path_str) {
+                return nullptr;
+            }
+            factory_args[key_string.value()] = std::filesystem::path(to_string(path_str).value());
+            Py_DECREF(path_str);
+        } else {
+            PyErr_SetString(LibTokaMapError, "Dictionary value must be a string or integer");
+            return nullptr;
+        }
+    }
+
+    auto* mapper = reinterpret_cast<PyMapper*>(py_mapper);
+    try {
+        mapper->cpp_mapper->register_data_source(data_source_name, data_source_factory_name, factory_args);
+    } catch (const std::exception& e) {
+        PyErr_SetString(LibTokaMapError, e.what());
+        return nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject* libtokamap_register_data_source_factory(PyObject* Py_UNUSED(module), PyObject* args)
+{
+    PyObject* py_mapper = nullptr;
+    const char* data_source_factory_name = nullptr;
+    const char* data_source_library_path = nullptr;
+
+    if (!PyArg_ParseTuple(args, "Oss", &py_mapper, &data_source_factory_name, &data_source_library_path)) {
+        return nullptr;
+    }
+
+    if (!PyObject_IsInstance(py_mapper, reinterpret_cast<PyObject*>(&PyMapperType))) {
+        PyErr_SetString(LibTokaMapError, "First argument to register_data_source must be a PyMapper");
+        return nullptr;
+    }
+
+    auto* mapper = reinterpret_cast<PyMapper*>(py_mapper);
+    try {
+        mapper->cpp_mapper->register_data_source_factory(data_source_factory_name, data_source_library_path);
+    } catch (const std::exception& e) {
+        PyErr_SetString(LibTokaMapError, e.what());
+        return nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject* get_data_source_type()
+{
     PyObject* libtokamap = PyImport_ImportModule("libtokamap");
     if (!libtokamap) {
         PyErr_SetString(LibTokaMapError, "Failed to import libtokamap module");
@@ -370,8 +467,31 @@ PyObject* libtokamap_register_data_source(PyObject* Py_UNUSED(module), PyObject*
         return nullptr;
     }
 
+    Py_DECREF(libtokamap);
+    return data_source_type;
+}
+
+PyObject* libtokamap_register_python_data_source(PyObject* Py_UNUSED(module), PyObject* args)
+{
+    PyObject* py_mapper = nullptr;
+    const char* data_source_name = nullptr;
+    PyObject* data_source = nullptr;
+
+    if (!PyArg_ParseTuple(args, "OsO", &py_mapper, &data_source_name, &data_source)) {
+        return nullptr;
+    }
+
+    if (!PyObject_IsInstance(py_mapper, reinterpret_cast<PyObject*>(&PyMapperType))) {
+        PyErr_SetString(LibTokaMapError, "First argument to libtokamap_register_python_data_source must be a PyMapper");
+        return nullptr;
+    }
+
+    PyObject* data_source_type = get_data_source_type();
+    if (data_source_type == nullptr) {
+        return nullptr;
+    }
+
     if (!PyObject_IsInstance(data_source, data_source_type)) {
-        Py_DECREF(libtokamap);
         Py_XDECREF(data_source_type);
         PyErr_SetString(LibTokaMapError, "Given data source does not inherit from DataSource class");
         return nullptr;
@@ -380,11 +500,14 @@ PyObject* libtokamap_register_data_source(PyObject* Py_UNUSED(module), PyObject*
     auto py_data_source = std::make_unique<PythonDataSource>(data_source);
 
     auto* mapper = reinterpret_cast<PyMapper*>(py_mapper);
-    mapper->cpp_mapper->register_data_source(data_source_name_string.value(), std::move(py_data_source));
+    try {
+        mapper->cpp_mapper->register_data_source(data_source_name, std::move(py_data_source));
+    } catch (const std::exception& e) {
+        PyErr_SetString(LibTokaMapError, e.what());
+        return nullptr;
+    }
 
-    Py_DECREF(libtokamap);
     Py_XDECREF(data_source_type);
-
     Py_INCREF(Py_None);
     return Py_None;
 }
@@ -437,27 +560,58 @@ class PythonFunctionWrapper : public libtokamap::LibraryFunctionWrapper
     PyObject* m_function;
 };
 
-PyObject* libtokamap_register_custom_function(PyObject* Py_UNUSED(module), PyObject* const* args, Py_ssize_t nargs)
+PyObject* libtokamap_load_custom_function_library(PyObject* Py_UNUSED(module), PyObject* args)
 {
-    if (nargs != 4) {
-        PyErr_SetString(LibTokaMapError, "register_custom_function must be called with 4 arguments");
+    PyObject* py_mapper = nullptr;
+    PyObject* py_library_path = nullptr;
+
+    if (!PyArg_ParseTuple(args, "OO", &py_mapper, &py_library_path)) {
         return nullptr;
     }
 
-    PyObject* py_mapper = args[0];
-    PyObject* lib_name = args[1];
-    PyObject* func_name = args[2];
-    PyObject* function = args[3];
-
-    auto lib_name_string = to_string(lib_name);
-    if (!lib_name_string) {
-        PyErr_SetString(LibTokaMapError, "First argument to register_custom_function must be a string");
+    if (!PyObject_IsInstance(py_mapper, reinterpret_cast<PyObject*>(&PyMapperType))) {
+        PyErr_SetString(LibTokaMapError, "First argument to register_data_source must be a PyMapper");
         return nullptr;
     }
 
-    auto func_name_string = to_string(func_name);
-    if (!func_name_string) {
-        PyErr_SetString(LibTokaMapError, "Second argument to register_custom_function must be a string");
+    PyObject* path_type = get_pathlib_path_type();
+
+    if (!PyObject_IsInstance(py_library_path, path_type)) {
+        PyErr_SetString(LibTokaMapError, "Second argument to register_data_source must be a pathlib.Path");
+        return nullptr;
+    }
+
+    PyObject* py_library_path_str = PyObject_Str(py_library_path);
+    if (py_library_path_str == nullptr) {
+        PyErr_SetString(LibTokaMapError, "Failed to convert library path to string");
+        return nullptr;
+    }
+    auto library_path = to_string(py_library_path_str);
+    if (!library_path) {
+        PyErr_SetString(LibTokaMapError, "Failed to convert library path to string");
+        return nullptr;
+    }
+
+    auto* mapper = reinterpret_cast<PyMapper*>(py_mapper);
+    try {
+        mapper->cpp_mapper->load_custom_function_library(library_path.value());
+    } catch (const std::exception& e) {
+        PyErr_SetString(LibTokaMapError, e.what());
+        return nullptr;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+PyObject* libtokamap_register_custom_function(PyObject* Py_UNUSED(module), PyObject* args)
+{
+    PyObject* py_mapper = nullptr;
+    const char* lib_name = nullptr;
+    const char* func_name = nullptr;
+    PyObject* function = nullptr;
+
+    if (!PyArg_ParseTuple(args, "OssO", &py_mapper, &lib_name, &func_name, &function)) {
         return nullptr;
     }
 
@@ -467,11 +621,15 @@ PyObject* libtokamap_register_custom_function(PyObject* Py_UNUSED(module), PyObj
     }
 
     auto function_wrapper = std::make_unique<PythonFunctionWrapper>(function);
-    libtokamap::LibraryFunction library_function{lib_name_string.value(), func_name_string.value(),
-                                                 std::move(function_wrapper)};
+    libtokamap::LibraryFunction library_function{lib_name, func_name, std::move(function_wrapper)};
 
     auto* mapper = reinterpret_cast<PyMapper*>(py_mapper);
-    mapper->cpp_mapper->register_custom_function(std::move(library_function));
+    try {
+        mapper->cpp_mapper->register_custom_function(std::move(library_function));
+    } catch (const std::exception& e) {
+        PyErr_SetString(LibTokaMapError, e.what());
+        return nullptr;
+    }
 
     Py_INCREF(Py_None);
     return Py_None;
@@ -569,6 +727,14 @@ int libtokamap_module_exec(PyObject* module)
 
     Py_INCREF(&PyMapperType);
     PyModule_AddObject(module, "PyMapper", (PyObject*)&PyMapperType);
+
+    if (PyModule_AddStringConstant(module, "__version__", libtokamap::Version) < 0) {
+        return -1;
+    }
+
+    if (PyModule_AddStringConstant(module, "LibrarySuffix", libtokamap::LibrarySuffix) < 0) {
+        return -1;
+    }
 
     return 0;
 }

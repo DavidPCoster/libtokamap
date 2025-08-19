@@ -24,10 +24,10 @@ class MyDataSource : public libtokamap::DataSource
 public:
     // Constructor - configure your data source
     explicit MyDataSource(const std::string& connection_string);
-    
+
     // Destructor
     ~MyDataSource() override = default;
-    
+
     // Main method - implement data retrieval logic
     libtokamap::TypedDataArray get(
         const libtokamap::DataSourceArgs& map_args,
@@ -73,7 +73,7 @@ libtokamap::TypedDataArray MyDataSource::get(
         } else {
             throw libtokamap::DataSourceError("Missing 'path' argument");
         }
-        
+
         // 2. Use cache if available
         std::string cache_key = generate_cache_key(data_path, arguments);
         if (ram_cache) {
@@ -82,20 +82,20 @@ libtokamap::TypedDataArray MyDataSource::get(
                 return cached_data.value();
             }
         }
-        
+
         // 3. Retrieve data from your source
         std::vector<double> data = retrieve_data(data_path, arguments);
-        
+
         // 4. Create TypedDataArray result
         libtokamap::TypedDataArray result = data;
-        
+
         // 5. Store in cache
         if (ram_cache) {
             ram_cache->put(cache_key, result);
         }
-        
+
         return result;
-        
+
     } catch (const std::exception& e) {
         throw libtokamap::DataSourceError("Failed to retrieve data: " + std::string(e.what()));
     }
@@ -123,7 +123,7 @@ std::vector<double> MyDataSource::retrieve_data(
     // - Making network requests
     // - Processing binary data
     // etc.
-    
+
     std::vector<double> data = {1.0, 2.0, 3.0, 4.0, 5.0};
     return data;
 }
@@ -143,7 +143,7 @@ libtokamap::TypedDataArray MyDataSource::get(
 {
     std::string data_type = map_args.value("type", "double");
     std::string path = map_args.at("path").get<std::string>();
-    
+
     if (data_type == "double") {
         std::vector<double> data = retrieve_double_data(path);
         return libtokamap::TypedDataArray{data};
@@ -174,15 +174,15 @@ libtokamap::TypedDataArray MyDataSource::get(
         int shot_number = arguments.extra_attributes["shot"].get<int>();
         // Use shot number to determine data location
     }
-    
+
     if (arguments.extra_attributes.contains("timestamp")) {
         std::string timestamp = arguments.extra_attributes["timestamp"].get<std::string>();
         // Filter data by timestamp
     }
-    
+
     // Use the data_path from arguments
     std::string full_path = arguments.data_path;
-    
+
     // Implement your data retrieval logic...
 }
 ```
@@ -202,24 +202,24 @@ libtokamap::TypedDataArray MyDataSource::get(
         if (!map_args.contains("path")) {
             throw libtokamap::DataSourceError("Missing required 'path' argument");
         }
-        
+
         std::string path = map_args.at("path").get<std::string>();
-        
+
         // Validate path
         if (path.empty()) {
             throw libtokamap::DataSourceError("Path cannot be empty");
         }
-        
+
         // Attempt data retrieval
         auto data = retrieve_data(path, arguments);
-        
+
         // Validate data
         if (data.empty()) {
             throw libtokamap::DataSourceError("No data found for path: " + path);
         }
-        
+
         return libtokamap::TypedDataArray{data};
-        
+
     } catch (const libtokamap::DataSourceError&) {
         // Re-throw LibTokaMap errors
         throw;
@@ -242,10 +242,10 @@ Register your data source directly with the mapping handler:
 int main() {
     // Create your data source
     auto data_source = std::make_unique<MyDataSource>("connection_string");
-    
+
     // Register it with the system
     libtokamap::DataSourceMapping::register_data_source("MY_SOURCE", std::move(data_source));
-    
+
     // Initialize mapping handler
     libtokamap::MappingHandler handler;
     // ... continue with normal usage
@@ -261,24 +261,17 @@ For more flexibility, create a factory function:
 std::unique_ptr<libtokamap::DataSource> create_my_data_source(
     const libtokamap::DataSourceFactoryArgs& args)
 {
-    std::string connection_string;
-    
-    if (args.contains("connection_string")) {
-        connection_string = std::any_cast<std::string>(args.at("connection_string"));
-    } else {
-        throw libtokamap::DataSourceError("Missing connection_string argument");
-    }
-    
+    auto connection_string = libtokamap::get_arg<std::string>(args, "connection_string");
     return std::make_unique<MyDataSource>(connection_string);
 }
 
 // Register the factory
 int main() {
     libtokamap::DataSourceMapping::register_data_source_factory(
-        "MY_SOURCE", 
+        "MY_SOURCE",
         create_my_data_source
     );
-    
+
     // Now you can configure the data source through JSON
 }
 ```
@@ -321,7 +314,7 @@ public:
             throw libtokamap::FileError("Data root does not exist");
         }
     }
-    
+
     libtokamap::TypedDataArray get(
         const libtokamap::DataSourceArgs& map_args,
         const libtokamap::MapArguments& arguments,
@@ -329,22 +322,22 @@ public:
     {
         std::string filename = map_args.at("file").get<std::string>();
         std::string json_path = map_args.at("path").get<std::string>();
-        
+
         std::filesystem::path full_path = m_data_root / filename;
-        
+
         // Load JSON file
         std::ifstream file(full_path);
         if (!file.is_open()) {
             throw libtokamap::FileError("Cannot open file: " + full_path.string());
         }
-        
+
         nlohmann::json data;
         file >> data;
-        
+
         // Navigate to specified path
         nlohmann::json::json_pointer ptr(json_path);
         nlohmann::json result = data[ptr];
-        
+
         // Convert to appropriate data type
         if (result.is_array() && !result.empty()) {
             if (result[0].is_number_float()) {
@@ -353,10 +346,10 @@ public:
                 return libtokamap::TypedDataArray{result.get<std::vector<int>>()};
             }
         }
-        
+
         throw libtokamap::DataSourceError("Unsupported JSON data type");
     }
-    
+
 private:
     std::filesystem::path m_data_root;
 };
@@ -377,13 +370,13 @@ public:
             throw libtokamap::DataSourceError("Cannot open database: " + std::string(sqlite3_errmsg(m_db)));
         }
     }
-    
+
     ~SQLiteDataSource() override {
         if (m_db) {
             sqlite3_close(m_db);
         }
     }
-    
+
     libtokamap::TypedDataArray get(
         const libtokamap::DataSourceArgs& map_args,
         const libtokamap::MapArguments& arguments,
@@ -391,33 +384,33 @@ public:
     {
         std::string table = map_args.at("table").get<std::string>();
         std::string column = map_args.at("column").get<std::string>();
-        
+
         // Build query
         std::string query = "SELECT " + column + " FROM " + table;
-        
+
         // Add WHERE clause based on arguments
         if (arguments.extra_attributes.contains("shot")) {
             int shot = arguments.extra_attributes["shot"].get<int>();
             query += " WHERE shot = " + std::to_string(shot);
         }
-        
+
         // Execute query
         sqlite3_stmt* stmt;
         int rc = sqlite3_prepare_v2(m_db, query.c_str(), -1, &stmt, nullptr);
         if (rc != SQLITE_OK) {
             throw libtokamap::DataSourceError("SQL error: " + std::string(sqlite3_errmsg(m_db)));
         }
-        
+
         std::vector<double> results;
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             double value = sqlite3_column_double(stmt, 0);
             results.push_back(value);
         }
-        
+
         sqlite3_finalize(stmt);
         return libtokamap::TypedDataArray{results};
     }
-    
+
 private:
     std::string m_db_path;
     sqlite3* m_db = nullptr;
@@ -480,7 +473,7 @@ protected:
     void SetUp() override {
         data_source = std::make_unique<MyDataSource>("test_connection");
     }
-    
+
     std::unique_ptr<MyDataSource> data_source;
 };
 
@@ -488,12 +481,12 @@ TEST_F(MyDataSourceTest, RetrievesValidData) {
     libtokamap::DataSourceArgs args = {
         {"path", "test/data"}
     };
-    
+
     libtokamap::MapArguments arguments;
     arguments.data_path = "test/data";
-    
+
     auto result = data_source->get(args, arguments, nullptr);
-    
+
     ASSERT_TRUE(result.holds_alternative<std::vector<double>>());
     auto data = std::get<std::vector<double>>(result);
     EXPECT_FALSE(data.empty());
@@ -503,9 +496,9 @@ TEST_F(MyDataSourceTest, ThrowsOnInvalidPath) {
     libtokamap::DataSourceArgs args = {
         {"path", ""}
     };
-    
+
     libtokamap::MapArguments arguments;
-    
+
     EXPECT_THROW(
         data_source->get(args, arguments, nullptr),
         libtokamap::DataSourceError

@@ -2,7 +2,6 @@
 
 #include <dlfcn.h>
 #include <filesystem>
-#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -66,7 +65,7 @@ libtokamap::load_custom_functions(const std::filesystem::path& custom_function_l
     if (!std::filesystem::exists(custom_function_library)) {
         throw libtokamap::TokaMapError("Library path '" + custom_function_library.string() + "' does not exist");
     }
-    if (!std::filesystem::is_regular_file(custom_function_library) || custom_function_library.extension() != LibTokaMapSuffix) {
+    if (!std::filesystem::is_regular_file(custom_function_library) || custom_function_library.extension() != LibrarySuffix) {
         throw libtokamap::TokaMapError("Invalid library path '" + custom_function_library.string() + "'");
     }
     return load_library_functions(custom_function_library);

@@ -43,6 +43,10 @@
 namespace
 {
 
+constexpr const char* MappingSchemaFilename = "mappings.schema.json";
+constexpr const char* GlobalsSchemaFilename = "globals.schema.json";
+constexpr const char* MappingConfigSchemaFilename = "mappings.cfg.schema.json";
+
 nlohmann::json load_json_file(const std::string& path)
 {
     std::ifstream file(path);
@@ -58,13 +62,12 @@ nlohmann::json load_json_file(const std::string& path)
     return json;
 }
 
-void load_validation_schema(const nlohmann::json& config, const std::string& name, valijson::Schema& mapping_schema)
+void load_validation_schema(const std::filesystem::path& schemas_directory, const std::string& filename, valijson::Schema& mapping_schema)
 {
-    if (!config.contains(name)) {
-        throw libtokamap::ConfigurationError{name + " not specified in config"};
+    auto schema_path = schemas_directory / filename;
+    if (!std::filesystem::exists(schema_path)) {
+        throw libtokamap::FileError{"Schema file not found: " + schema_path.string()};
     }
-
-    auto schema_path = config.at(name).get<std::string>();
     auto schema_json = load_json_file(schema_path);
 
     valijson::adapters::NlohmannJsonAdapter schema_adapter(schema_json);
@@ -76,9 +79,20 @@ void load_validation_schema(const nlohmann::json& config, const std::string& nam
 void load_validation_schemas(const nlohmann::json& config, valijson::Schema& mapping_schema,
                              valijson::Schema& globals_schema, valijson::Schema& mapping_config_schema)
 {
-    load_validation_schema(config, "mapping_schema", mapping_schema);
-    load_validation_schema(config, "globals_schema", globals_schema);
-    load_validation_schema(config, "mapping_config_schema", mapping_config_schema);
+    if (!config.contains("schemas_directory")) {
+        throw libtokamap::ConfigurationError{"'schemas_directory' not specified in config"};
+    }
+    std::filesystem::path schemas_directory = config.at("schemas_directory").get<std::string>();
+    if (!std::filesystem::exists(schemas_directory)) {
+        throw libtokamap::FileError{"Schemas directory not found: " + schemas_directory.string()};
+    }
+    if (!std::filesystem::is_directory(schemas_directory)) {
+        throw libtokamap::FileError{"Schemas directory is not a directory: " + schemas_directory.string()};
+    }
+
+    load_validation_schema(schemas_directory, MappingSchemaFilename, mapping_schema);
+    load_validation_schema(schemas_directory, GlobalsSchemaFilename, globals_schema);
+    load_validation_schema(schemas_directory, MappingConfigSchemaFilename, mapping_config_schema);
 }
 
 void validate(const nlohmann::json& json, const valijson::Schema& schema)
@@ -424,6 +438,13 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
     return map_store;
 }
 
+void libtokamap::MappingHandler::load_custom_function_library(const std::filesystem::path& library_path)
+{
+    auto library_functions = load_custom_functions(library_path);
+    m_library_functions.insert(m_library_functions.end(), std::make_move_iterator(library_functions.begin()),
+                               std::make_move_iterator(library_functions.end()));
+}
+
 void libtokamap::MappingHandler::init(const nlohmann::json& config)
 {
     if (m_init || !m_experiment_register.empty()) {
@@ -455,9 +476,7 @@ void libtokamap::MappingHandler::init(const nlohmann::json& config)
         std::vector<std::filesystem::path> paths =
             config.at("custom_function_libraries").get<std::vector<std::filesystem::path>>();
         for (const auto& custom_function_library : paths) {
-            auto library_functions = load_custom_functions(custom_function_library);
-            m_library_functions.insert(m_library_functions.end(), std::make_move_iterator(library_functions.begin()),
-                                       std::make_move_iterator(library_functions.end()));
+            load_custom_function_library(custom_function_library);
         }
     }
 }
@@ -525,6 +544,14 @@ void libtokamap::MappingHandler::register_data_source_factory(const std::string&
         throw TokaMapError("Data source factory with name '" + factory_name + "' already exists");
     }
     m_data_source_factories[factory_name] = libtokamap::load_data_source_factory(library_path);
+}
+
+void libtokamap::MappingHandler::register_data_source(const std::string& name, std::unique_ptr<libtokamap::DataSource> data_source)
+{
+    if (m_data_sources.contains(name)) {
+        throw TokaMapError("Data source with name '" + name + "' already exists");
+    }
+    m_data_sources[name] = std::move(data_source);
 }
 
 void libtokamap::MappingHandler::register_data_source(const std::string& name, const std::string& factory_name,

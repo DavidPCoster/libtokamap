@@ -39,9 +39,12 @@ class MappingHandler
 
     void register_data_source_factory(const std::string& factory_name, const std::filesystem::path& library_path);
     void register_data_source_factory(const std::string& factory_name, DataSourceFactory factory);
+
+    void register_data_source(const std::string& name, std::unique_ptr<libtokamap::DataSource> data_source);
     void register_data_source(const std::string& name, const std::string& factory_name, const DataSourceFactoryArgs& args);
     void unregister_data_source(const std::string& name);
 
+    void load_custom_function_library(const std::filesystem::path& library_path);
     void register_custom_function(LibraryFunction custom_function);
     void unregister_custom_function(const std::string& library_name, const std::string& function_name);
 

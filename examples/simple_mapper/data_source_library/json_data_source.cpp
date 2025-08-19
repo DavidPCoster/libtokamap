@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <libtokamap.hpp>
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -16,6 +17,12 @@ using namespace std::string_literals;
 
 namespace
 {
+
+std::unique_ptr<libtokamap::DataSource> json_data_source_factory(const libtokamap::DataSourceFactoryArgs& args)
+{
+    auto data_root = libtokamap::get_arg<std::filesystem::path>(args, "data_root");
+    return std::make_unique<JSONDataSource>(data_root);
+}
 
 libtokamap::TypedDataArray parse(const nlohmann::json& value)
 {
@@ -98,4 +105,8 @@ libtokamap::TypedDataArray JSONDataSource::get(const libtokamap::DataSourceArgs&
     }
 
     return parse(value);
+}
+
+void LibTokaMapFactoryLoader(libtokamap::FactoryEntryInterface& factory) {
+    factory.function = json_data_source_factory;
 }

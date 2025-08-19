@@ -1,11 +1,13 @@
 #pragma once
 
 #include <any>
+#include <cxxabi.h>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <typeindex>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -100,5 +102,24 @@ struct FactoryEntryInterface {
 };
 
 DataSourceFactory load_data_source_factory(const std::filesystem::path& library_path);
+
+template <typename T>
+std::string to_string()
+{
+    int status = 0;
+    return abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status);
+}
+
+template <typename T> auto get_arg(const DataSourceFactoryArgs& args, const char* variable) -> T
+{
+    if (!args.contains(variable)) {
+        throw libtokamap::TokaMapError("Missing factory argument '" + std::string(variable) + "'");
+    }
+    try {
+        return std::any_cast<T>(args.at(variable));
+    } catch (const std::bad_any_cast&) {
+        throw libtokamap::ConfigurationError("Expected type '" + to_string<T>() + "' for variable '" + variable + "'");
+    }
+}
 
 } // namespace libtokamap

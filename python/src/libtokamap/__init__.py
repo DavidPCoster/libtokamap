@@ -1,8 +1,13 @@
 import clibtokamap
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 import numpy as np
 from typing import Callable, Any
+
+
+__version__ = clibtokamap.__version__
+LibrarySuffix = clibtokamap.LibrarySuffix
 
 
 class DataSource(ABC):
@@ -37,7 +42,13 @@ class Mapper:
         """
         self._mapper = clibtokamap.create(mapping_path)
 
-    def register_data_source(self, name: str, data_source: DataSource) -> None:
+    def register_data_source_factory(self, factory_name: str, factory_library: str) -> None:
+        clibtokamap.register_data_source_factory(self._mapper, factory_name, factory_library)
+
+    def register_data_source(self, name: str, factory_name: str, args: dict[str, str]) -> None:
+        clibtokamap.register_data_source(self._mapper, name, factory_name, args)
+
+    def register_python_data_source(self, name: str, data_source: DataSource) -> None:
         """Register a data source with the mapper.
 
         Args:
@@ -47,7 +58,15 @@ class Mapper:
         Throws:
             LibTokaMapError: If the data source is not a subclass of DataSource.
         """
-        clibtokamap.register_data_source(self._mapper, name, data_source)
+        clibtokamap.register_python_data_source(self._mapper, name, data_source)
+
+    def load_custom_function_library(self, library_path: Path) -> None:
+        """Load a custom function library.
+
+        Args:
+            library_path: The path to the library.
+        """
+        clibtokamap.load_custom_function_library(self._mapper, library_path)
 
     def register_custom_function(self, library_name: str, function_name: str, function: Callable[[dict[str, np.array], dict[str, Any]], np.array]) -> None:
         """Register a custom function with the mapper.

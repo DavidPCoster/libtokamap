@@ -1,5 +1,5 @@
+#include "config.hpp"
 #include <algorithm>
-#include <any>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
@@ -7,17 +7,10 @@
 #include <filesystem>
 #include <iostream>
 #include <libtokamap.hpp>
-#include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <typeindex>
 #include <vector>
-
-#include "config.hpp"
-#include "exceptions/exceptions.hpp"
-#include "json_data_source.hpp"
-#include "map_types/data_source_mapping.hpp"
-#include "utils/library_loader.hpp"
 
 namespace
 {
@@ -60,15 +53,6 @@ void map_all(libtokamap::MappingHandler& mapping_handler, const std::string& map
     }
 }
 
-std::unique_ptr<libtokamap::DataSource> json_data_source_factory(const libtokamap::DataSourceFactoryArgs& args)
-{
-    if (!args.contains("data_root")) {
-        throw libtokamap::TokaMapError("Missing data root");
-    }
-    auto data_root = std::any_cast<std::filesystem::path>(args.at("data_root"));
-    return std::make_unique<JSONDataSource>(data_root);
-}
-
 } // namespace
 
 int main()
@@ -77,22 +61,21 @@ int main()
         libtokamap::MappingHandler mapping_handler;
 
         auto root = std::filesystem::path{__FILE__}.parent_path().parent_path();
+        auto build_root = root.parent_path().parent_path() / "build" / "examples" / "simple_mapper";
 
-        mapping_handler.register_data_source_factory("JSON", json_data_source_factory);
+        auto data_source_library = build_root / (std::string{"libjson_data_source"} + libtokamap::LibrarySuffix);
+        mapping_handler.register_data_source_factory("JSON_factory", data_source_library);
 
         std::filesystem::path data_root = root / "data";
         libtokamap::DataSourceFactoryArgs factory_args = {{"data_root", data_root}};
-        mapping_handler.register_data_source("JSON", "JSON", factory_args);
+        mapping_handler.register_data_source("JSON", "JSON_factory", factory_args);
 
-        std::string library_name = std::string{"libcustom_library"} + LibTokaMapSuffix;
-        std::vector<std::string> custom_function_libraries = {root.parent_path().parent_path() / "build" / "examples" /
-                                                              "simple_mapper" / library_name};
+        std::string library_name = std::string{"libcustom_library"} + libtokamap::LibrarySuffix;
+        std::vector<std::string> custom_function_libraries = {build_root / library_name};
 
         auto schema_root = root.parent_path().parent_path() / "schemas";
         nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},
-                                 {"mapping_schema", (schema_root / "mappings.schema.json").string()},
-                                 {"globals_schema", (schema_root / "globals.schema.json").string()},
-                                 {"mapping_config_schema", (schema_root / "mappings.cfg.schema.json").string()},
+                                 {"schemas_directory", schema_root.string()},
                                  {"custom_function_libraries", custom_function_libraries}};
         mapping_handler.init(config);
 
