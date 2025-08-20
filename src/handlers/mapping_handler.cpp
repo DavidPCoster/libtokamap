@@ -133,6 +133,10 @@ void uppercase_keys(nlohmann::json& data)
 nlohmann::json load_json(const std::filesystem::path& file_path, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
+    // expand syntactic sugar
+    for (const auto& [key, value] : json.items()) {
+        value = libtokamap::expand_syntactic_sugar(value);
+    }
     if (to_upper) {
         uppercase_keys(json);
     }
@@ -515,10 +519,6 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
 
         constexpr bool to_upper = true;
         auto mappings_json = load_json(partition_directory / "mappings.json", to_upper);
-        // Expand syntactic sugar before validation
-        for (const auto& [key, value] : mappings_json.items()) {
-            value = libtokamap::expand_syntactic_sugar(value);
-        }
         validate(mappings_json, m_mappings_schema);
         mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals);
 
