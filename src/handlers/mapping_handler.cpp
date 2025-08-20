@@ -119,10 +119,6 @@ void uppercase_keys(nlohmann::json& data)
 nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
-    // expand syntactic sugar
-    for (const auto& [key, value] : json.items()) {
-        value = libtokamap::parse(value);
-    }
     if (to_upper) {
         uppercase_keys(json);
     }
@@ -394,6 +390,24 @@ void init_custom_mapping(libtokamap::MappingStore& map_store, const libtokamap::
                                                                                     function_name, input_map, params));
 }
 
+void parse_globals(nlohmann::json& globals)
+{
+    // expand syntactic sugar
+    for (const auto& [key, value] : globals.items()) {
+        if (value.is_string()) {
+            value = libtokamap::process_string_node(value);
+        }
+    }
+}
+
+void parse_mappings(nlohmann::json& mappings)
+{
+    // expand syntactic sugar
+    for (const auto& [key, value] : mappings.items()) {
+        value = libtokamap::parse(value);
+    }
+}
+
 } // namespace
 
 libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohmann::json& data,
@@ -482,6 +496,7 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
     const auto& mapping_dir = experiment_mapping.root_path;
 
     auto top_level_globals = load_json(mapping_dir / "globals.json", m_globals_schema);
+    parse_globals(top_level_globals);
     validate(top_level_globals, m_globals_schema);
     experiment_mapping.top_level_globals = top_level_globals;
 
@@ -495,11 +510,13 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
         MappingPair mapping_pair;
 
         mapping_pair.globals = load_json(partition_directory / "globals.json", m_globals_schema);
+        parse_globals(mapping_pair.globals);
         validate(mapping_pair.globals, m_globals_schema);
         mapping_pair.globals.update(top_level_globals);
 
         constexpr bool to_upper = true;
         auto mappings_json = load_json(partition_directory / "mappings.json", m_mappings_schema, to_upper);
+        parse_mappings(mappings_json);
         validate(mappings_json, m_mappings_schema);
         mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals);
 
