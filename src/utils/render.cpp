@@ -11,6 +11,6 @@ std::string libtokamap::render(const std::string& template_string, const inja::j
     try {
         return inja::render(inja::render(template_string, data), data);
     } catch (const std::exception& e) {
-        throw libtokamap::MappingError(e.what());
+        throw libtokamap::TokaMapError(e.what());
     }
 }
