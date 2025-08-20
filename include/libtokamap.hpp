@@ -10,6 +10,7 @@
 #include <utils/algorithm.hpp>               // IWYU pragma: export.
 #include <utils/indices.hpp>                 // IWYU pragma: export.
 #include <utils/ram_cache.hpp>               // IWYU pragma: export.
+#include <utils/render.hpp>                  // IWYU pragma: export.
 #include <utils/scale_offset.hpp>            // IWYU pragma: export.
 #include <utils/subset.hpp>                  // IWYU pragma: export.
 #include <utils/syntax_parser.hpp>           // IWYU pragma: export.

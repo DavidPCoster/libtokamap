@@ -10,6 +10,7 @@
 
 #include "map_types/base_mapping.hpp"
 #include "map_types/map_arguments.hpp"
+#include "utils/render.hpp"
 
 namespace libtokamap
 {
@@ -108,7 +109,7 @@ template <typename T> TypedDataArray ExprMapping::eval_expr(const MapArguments& 
     expression.register_symbol_table(symbol_table);
 
     // replace patterns in expression if necessary, e.g. expression: RESULT:=X+Y
-    std::string expr_string{"RESULT:=" + inja::render(m_expr, arguments.global_data)};
+    std::string expr_string{"RESULT:=" + libtokamap::render(m_expr, arguments.global_data)};
     parser.compile(expr_string, expression);
 
     // expression.value() executes the calculation and returns a value

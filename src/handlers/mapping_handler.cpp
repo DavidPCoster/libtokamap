@@ -36,6 +36,7 @@
 #include "utils/library_loader.hpp"
 #include "utils/mapping_locator.hpp"
 #include "utils/ram_cache.hpp"
+#include "utils/render.hpp"
 #include "utils/syntax_parser.hpp"
 #include "utils/types.hpp"
 
@@ -308,7 +309,7 @@ std::optional<float> get_float_value(const std::string& name, const nlohmann::js
             opt_float = value[name].get<float>();
         } else if (value[name].is_string()) {
             try {
-                const auto post_inja_str = inja::render(value[name].get<std::string>(), group_attributes);
+                const auto post_inja_str = libtokamap::render(value[name].get<std::string>(), group_attributes);
                 opt_float = std::stof(post_inja_str);
             } catch (const std::invalid_argument&) {
                 // const std::string message = "\nCannot convert " + name + " string to float\n";

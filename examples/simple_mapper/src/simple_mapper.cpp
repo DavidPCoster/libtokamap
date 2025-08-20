@@ -17,7 +17,7 @@
 
 namespace
 {
-unsigned long map(libtokamap::MappingHandler& mapping_handler, const std::string& mapping, const std::string& path)
+int map(libtokamap::MappingHandler& mapping_handler, const std::string& mapping, const std::string& path)
 {
     std::type_index data_type = std::type_index{typeid(char)};
     int rank = 1;
@@ -30,8 +30,8 @@ unsigned long map(libtokamap::MappingHandler& mapping_handler, const std::string
     padding.resize(std::max(key_length - static_cast<int64_t>(path.size()), int64_t{0}), ' ');
     std::cout << path << padding << " -> " << result.to_string() << "\n";
 
-    if (result.type_index() == std::type_index{typeid(unsigned long)}) {
-        return *std::bit_cast<unsigned long*>(result.buffer());
+    if (result.type_index() == std::type_index{typeid(int)}) {
+        return *std::bit_cast<int*>(result.buffer());
     }
     return 0;
 }

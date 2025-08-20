@@ -36,6 +36,7 @@ set( UTIL_SOURCES
     src/utils/library_loader.cpp
     src/utils/mapping_locator.cpp
     src/utils/ram_cache.cpp
+    src/utils/render.cpp
     src/utils/scale_offset.cpp
     src/utils/subset.cpp
     src/utils/syntax_parser.cpp
