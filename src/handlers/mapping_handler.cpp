@@ -119,6 +119,10 @@ void uppercase_keys(nlohmann::json& data)
 nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
+    // expand syntactic sugar
+    for (const auto& [key, value] : json.items()) {
+        value = libtokamap::parse(value);
+    }
     if (to_upper) {
         uppercase_keys(json);
     }
@@ -398,31 +402,28 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
     // const auto& attributes = m_experiment_register[experiment].group_globals[group_name];
     libtokamap::MappingStore map_store;
     for (const auto& [mapping_name, value] : data.items()) {
-        // Parse syntactic sugar
-        auto parsed_value = libtokamap::parse(value);
-
-        if (!parsed_value.contains("MAP_TYPE")) {
+        if (!value.contains("MAP_TYPE")) {
             throw libtokamap::MappingError{"required MAP_TYPE argument not found in mapping '" + mapping_name + "'"};
         }
 
         // TODO: make this case insensitive?
         using libtokamap::MappingType;
-        switch (parsed_value["MAP_TYPE"].get<MappingType>()) {
+        switch (value["MAP_TYPE"].get<MappingType>()) {
             case MappingType::VALUE:
-                init_value_mapping(map_store, mapping_name, parsed_value);
+                init_value_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::DATA_SOURCE:
-                init_data_source_mapping(map_store, mapping_name, parsed_value, group_attributes, m_ram_cache,
+                init_data_source_mapping(map_store, mapping_name, value, group_attributes, m_ram_cache,
                                          m_data_sources);
                 break;
             case MappingType::DIM:
-                init_dim_mapping(map_store, mapping_name, parsed_value);
+                init_dim_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::EXPR:
-                init_expr_mapping(map_store, mapping_name, parsed_value);
+                init_expr_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::CUSTOM:
-                init_custom_mapping(map_store, mapping_name, parsed_value, m_library_functions);
+                init_custom_mapping(map_store, mapping_name, value, m_library_functions);
                 break;
             default:
                 break;
