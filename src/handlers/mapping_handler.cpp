@@ -17,6 +17,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <toml.hpp>
 #include <typeindex>
 #include <unordered_map>
 #include <utility>
@@ -39,23 +40,40 @@
 #include "utils/render.hpp"
 #include "utils/syntax_parser.hpp"
 #include "utils/types.hpp"
+#include "config_schema.hpp"
 
 namespace
 {
 
-nlohmann::json load_json_file(const std::string& path)
+[[nodiscard]] nlohmann::json load_json_file(const std::filesystem::path& path)
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        throw libtokamap::FileError{"Failed to open file: " + path};
+        throw libtokamap::FileError{"Failed to open file: " + path.string()};
     }
-    nlohmann::json json;
     try {
-        file >> json;
+        return nlohmann::json::parse(file);
     } catch (nlohmann::json::exception& ex) {
         throw libtokamap::JsonError{ex.what()};
     }
-    return json;
+}
+
+[[nodiscard]] nlohmann::json load_toml_file(const std::filesystem::path& file_path)
+{
+    std::ifstream file(file_path);
+    if (!file.is_open()) {
+        throw libtokamap::ConfigurationError{"Failed to open file: " + file_path.string()};
+    }
+    try {
+        auto toml_config = toml::parse(file, file_path.string());
+        std::stringstream stream;
+        stream << toml::json_formatter(toml_config);
+        return nlohmann::json::parse(stream.str());
+    } catch (const toml::parse_error& e) {
+        throw libtokamap::ConfigurationError{"Failed to parse TOML: " + std::string(e.what())};
+    } catch (const nlohmann::json::parse_error& e) {
+        throw libtokamap::ConfigurationError{"Failed to convert TOML to JSON: " + std::string(e.what())};
+    }
 }
 
 void load_validation_schema(const nlohmann::json& config, const std::string& name, valijson::Schema& mapping_schema)
@@ -116,12 +134,20 @@ void uppercase_keys(nlohmann::json& data)
     }
 }
 
-nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema, bool to_upper = false)
+[[nodiscard]] nlohmann::json load_json(const std::filesystem::path& file_path, const valijson::Schema& schema,
+                                       bool to_upper = false)
 {
     auto json = load_json_file(file_path);
     if (to_upper) {
         uppercase_keys(json);
     }
+    validate(json, schema);
+    return json;
+}
+
+[[nodiscard]] nlohmann::json load_toml(const std::filesystem::path& file_path, const valijson::Schema& schema)
+{
+    auto json = load_toml_file(file_path);
     validate(json, schema);
     return json;
 }
@@ -427,8 +453,7 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
                 init_value_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::DATA_SOURCE:
-                init_data_source_mapping(map_store, mapping_name, value, group_attributes, m_ram_cache,
-                                         m_data_sources);
+                init_data_source_mapping(map_store, mapping_name, value, group_attributes, m_ram_cache, m_data_sources);
                 break;
             case MappingType::DIM:
                 init_dim_mapping(map_store, mapping_name, value);
@@ -444,6 +469,26 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
         }
     }
     return map_store;
+}
+
+void libtokamap::MappingHandler::init(const std::filesystem::path& config_path)
+{
+    nlohmann::json config_schema_json = nlohmann::json::parse(ConfigSchema);
+    valijson::adapters::NlohmannJsonAdapter config_schema_adapter{config_schema_json};
+
+    valijson::Schema config_schema;
+    valijson::SchemaParser parser;
+    parser.populateSchema(config_schema_adapter, config_schema);
+
+    nlohmann::json config;
+    if (config_path.extension() == ".json") {
+        config = load_json(config_path, config_schema);
+    } else if (config_path.extension() == ".toml") {
+        config = load_toml(config_path, config_schema);
+    } else {
+        throw libtokamap::ConfigurationError{"Unsupported configuration file type"};
+    }
+    init(config);
 }
 
 void libtokamap::MappingHandler::init(const nlohmann::json& config)

@@ -46,3 +46,35 @@ TEST_CASE("Test render conditionals", "[render]") {
     expected = "";
     REQUIRE(actual == expected);
 }
+
+TEST_CASE("Test optional key", "[render]") {
+    inja::Environment env;
+
+    env.add_callback("optional", 2, [](inja::Arguments& args) {
+        auto json = args.at(0)->get<inja::json>();
+        auto key = args.at(1)->get<std::string>();
+        if (json.contains(key)) {
+            return json[key];
+        }
+        return inja::json{};
+    });
+
+    std::string input = "{{ optional(at(FLUX_LOOPS, indices.0), \"LOOPV\") }}";
+    std::vector<inja::json> flux_loops = {
+        { { "LOOP_NAME", "loop1" }, { "LOOPV", "loopv1" } },
+        { { "LOOP_NAME", "loop2" } },
+    };
+    inja::json globals = {
+        {"FLUX_LOOPS", flux_loops},
+    };
+
+    globals["indices"] = {0};
+    std::string actual = env.render(input, globals);
+    std::string expected = "loopv1";
+    REQUIRE(actual == expected);
+
+    globals["indices"] = {1};
+    actual = env.render(input, globals);
+    expected = "";
+    REQUIRE(actual == expected);
+}
