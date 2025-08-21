@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <inja/inja.hpp>
+#include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -12,9 +13,7 @@
 
 #include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
-
-using namespace inja;
-using namespace nlohmann;
+#include "utils/render.hpp"
 
 namespace
 {
@@ -82,41 +81,35 @@ try_convert(const std::string& input)
     }
 }
 
-libtokamap::TypedDataArray type_deduce_array(const json& temp_val)
+libtokamap::TypedDataArray type_deduce_array(const nlohmann::json& temp_val)
 {
     switch (temp_val.front().type()) {
-        case json::value_t::number_float:
+        case nlohmann::json::value_t::number_float:
             return libtokamap::TypedDataArray{temp_val.get<std::vector<float>>()};
-        case json::value_t::number_integer:
+        case nlohmann::json::value_t::number_integer:
             return libtokamap::TypedDataArray{temp_val.get<std::vector<int>>()};
-        case json::value_t::number_unsigned:
+        case nlohmann::json::value_t::number_unsigned:
             return libtokamap::TypedDataArray{temp_val.get<std::vector<unsigned int>>()};
         default:
             return {};
     }
 }
 
-std::string render_string(const std::string& input, const json& global_data)
-{
-    // Double inja template execution
-    return render(render(input, global_data), global_data);
-}
-
-libtokamap::TypedDataArray type_deduce_primitive(const json& temp_val, const json& global_data,
+libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val, const nlohmann::json& global_data,
                                                  std::type_index data_type, int rank)
 {
     switch (temp_val.type()) {
-        case json::value_t::number_float:
+        case nlohmann::json::value_t::number_float:
             return libtokamap::TypedDataArray{temp_val.get<float>()};
-        case json::value_t::number_integer:
+        case nlohmann::json::value_t::number_integer:
             return libtokamap::TypedDataArray{temp_val.get<int>()};
-        case json::value_t::number_unsigned:
+        case nlohmann::json::value_t::number_unsigned:
             return libtokamap::TypedDataArray{temp_val.get<unsigned int>()};
-        case json::value_t::boolean:
+        case nlohmann::json::value_t::boolean:
             return libtokamap::TypedDataArray{temp_val.get<bool>()};
-        case json::value_t::string: {
+        case nlohmann::json::value_t::string: {
             // Handle string
-            std::string const rendered_string = render_string(temp_val.get<std::string>(), global_data);
+            std::string const rendered_string = libtokamap::render(temp_val.get<std::string>(), global_data);
 
             // try to convert to integer
             // catch exception - output as string
@@ -176,7 +169,7 @@ libtokamap::TypedDataArray libtokamap::ValueMapping::map(const MapArguments& arg
         // Check all members of array are numbers
         // (Add array of strings if necessary)
         const bool all_number =
-            std::all_of(temp_val.begin(), temp_val.end(), [](const json& els) { return els.is_number(); });
+            std::all_of(temp_val.begin(), temp_val.end(), [](const nlohmann::json& els) { return els.is_number(); });
 
         // deduce type if true
         if (all_number) {

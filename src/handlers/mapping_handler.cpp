@@ -18,12 +18,14 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <toml.hpp>
 #include <typeindex>
 #include <unordered_map>
 #include <utility>
 #include <valijson_nlohmann_bundled.hpp>
 #include <vector>
 
+#include "config_schema.hpp"
 #include "exceptions/exceptions.hpp"
 #include "map_types/base_mapping.hpp"
 #include "map_types/custom_mapping.hpp"
@@ -37,6 +39,7 @@
 #include "utils/library_loader.hpp"
 #include "utils/mapping_locator.hpp"
 #include "utils/ram_cache.hpp"
+#include "utils/render.hpp"
 #include "utils/syntax_parser.hpp"
 #include "utils/types.hpp"
 
@@ -47,22 +50,51 @@ constexpr const char* MappingSchemaFilename = "mappings.schema.json";
 constexpr const char* GlobalsSchemaFilename = "globals.schema.json";
 constexpr const char* MappingConfigSchemaFilename = "mappings.cfg.schema.json";
 
-nlohmann::json load_json_file(const std::string& path)
+[[nodiscard]] valijson::Schema load_config_schema()
+{
+    nlohmann::json config_schema_json = nlohmann::json::parse(ConfigSchema);
+    valijson::adapters::NlohmannJsonAdapter config_schema_adapter{config_schema_json};
+
+    valijson::Schema config_schema;
+    valijson::SchemaParser parser;
+    parser.populateSchema(config_schema_adapter, config_schema);
+
+    return config_schema;
+}
+
+[[nodiscard]] nlohmann::json load_json_file(const std::filesystem::path& path)
 {
     std::ifstream file(path);
     if (!file.is_open()) {
-        throw libtokamap::FileError{"Failed to open file: " + path};
+        throw libtokamap::FileError{"Failed to open file: " + path.string()};
     }
-    nlohmann::json json;
     try {
-        file >> json;
+        return nlohmann::json::parse(file);
     } catch (nlohmann::json::exception& ex) {
         throw libtokamap::JsonError{ex.what()};
     }
-    return json;
 }
 
-void load_validation_schema(const std::filesystem::path& schemas_directory, const std::string& filename, valijson::Schema& mapping_schema)
+[[nodiscard]] nlohmann::json load_toml_file(const std::filesystem::path& file_path)
+{
+    std::ifstream file(file_path);
+    if (!file.is_open()) {
+        throw libtokamap::ConfigurationError{"Failed to open file: " + file_path.string()};
+    }
+    try {
+        auto toml_config = toml::parse(file, file_path.string());
+        std::stringstream stream;
+        stream << toml::json_formatter(toml_config);
+        return nlohmann::json::parse(stream.str());
+    } catch (const toml::parse_error& e) {
+        throw libtokamap::ConfigurationError{"Failed to parse TOML: " + std::string(e.what())};
+    } catch (const nlohmann::json::parse_error& e) {
+        throw libtokamap::ConfigurationError{"Failed to convert TOML to JSON: " + std::string(e.what())};
+    }
+}
+
+void load_validation_schema(const std::filesystem::path& schemas_directory, const std::string& filename,
+                            valijson::Schema& mapping_schema)
 {
     auto schema_path = schemas_directory / filename;
     if (!std::filesystem::exists(schema_path)) {
@@ -130,7 +162,7 @@ void uppercase_keys(nlohmann::json& data)
     }
 }
 
-nlohmann::json load_json(const std::filesystem::path& file_path, bool to_upper = false)
+[[nodiscard]] nlohmann::json load_json(const std::filesystem::path& file_path, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
     // expand syntactic sugar
@@ -326,7 +358,7 @@ std::optional<float> get_float_value(const std::string& name, const nlohmann::js
             opt_float = value[name].get<float>();
         } else if (value[name].is_string()) {
             try {
-                const auto post_inja_str = inja::render(value[name].get<std::string>(), group_attributes);
+                const auto post_inja_str = libtokamap::render(value[name].get<std::string>(), group_attributes);
                 opt_float = std::stof(post_inja_str);
             } catch (const std::invalid_argument&) {
                 // const std::string message = "\nCannot convert " + name + " string to float\n";
@@ -407,6 +439,24 @@ void init_custom_mapping(libtokamap::MappingStore& map_store, const libtokamap::
                                                                                     function_name, input_map, params));
 }
 
+void parse_globals(nlohmann::json& globals)
+{
+    // expand syntactic sugar
+    for (const auto& [key, value] : globals.items()) {
+        if (value.is_string()) {
+            value = libtokamap::process_string_node(value);
+        }
+    }
+}
+
+void parse_mappings(nlohmann::json& mappings)
+{
+    // expand syntactic sugar
+    for (const auto& [key, value] : mappings.items()) {
+        value = libtokamap::expand_syntactic_sugar(value);
+    }
+}
+
 } // namespace
 
 libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohmann::json& data,
@@ -449,8 +499,24 @@ void libtokamap::MappingHandler::load_custom_function_library(const std::filesys
                                std::make_move_iterator(library_functions.end()));
 }
 
+void libtokamap::MappingHandler::init(const std::filesystem::path& config_path)
+{
+    nlohmann::json config;
+    if (config_path.extension() == ".json") {
+        config = load_json_file(config_path);
+    } else if (config_path.extension() == ".toml") {
+        config = load_toml_file(config_path);
+    } else {
+        throw libtokamap::ConfigurationError{"Unsupported configuration file type"};
+    }
+    init(config);
+}
+
 void libtokamap::MappingHandler::init(const nlohmann::json& config)
 {
+    auto config_schema = load_config_schema();
+    validate(config, config_schema);
+
     if (m_init || !m_experiment_register.empty()) {
         return;
     }
@@ -501,6 +567,7 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
     const auto& mapping_dir = experiment_mapping.root_path;
 
     auto top_level_globals = load_json(mapping_dir / "globals.json");
+    parse_globals(top_level_globals);
     validate(top_level_globals, m_globals_schema);
     experiment_mapping.top_level_globals = top_level_globals;
 
@@ -514,11 +581,13 @@ void libtokamap::MappingHandler::load_experiment(const ExperimentName& experimen
         MappingPair mapping_pair;
 
         mapping_pair.globals = load_json(partition_directory / "globals.json");
+        parse_globals(mapping_pair.globals);
         validate(mapping_pair.globals, m_globals_schema);
         mapping_pair.globals.update(top_level_globals);
 
         constexpr bool to_upper = true;
         auto mappings_json = load_json(partition_directory / "mappings.json", to_upper);
+        parse_mappings(mappings_json);
         validate(mappings_json, m_mappings_schema);
         mapping_pair.mappings = init_mappings(mappings_json, mapping_pair.globals);
 
@@ -546,7 +615,8 @@ void libtokamap::MappingHandler::register_data_source_factory(const std::string&
     m_data_source_factories[factory_name] = libtokamap::load_data_source_factory(library_path);
 }
 
-void libtokamap::MappingHandler::register_data_source(const std::string& name, std::unique_ptr<libtokamap::DataSource> data_source)
+void libtokamap::MappingHandler::register_data_source(const std::string& name,
+                                                      std::unique_ptr<libtokamap::DataSource> data_source)
 {
     if (m_data_sources.contains(name)) {
         throw TokaMapError("Data source with name '" + name + "' already exists");

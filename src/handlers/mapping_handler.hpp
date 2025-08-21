@@ -32,6 +32,7 @@ class MappingHandler
     MappingHandler() = default;
 
     void reset();
+    void init(const std::filesystem::path& config_path);
     void init(const nlohmann::json& config);
 
     [[nodiscard]] TypedDataArray map(const std::string& experiment, const std::string& path, std::type_index data_type,

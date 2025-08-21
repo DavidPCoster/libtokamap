@@ -18,6 +18,7 @@ set( TEST_SOURCES
     src/typed_data_array_test.cpp
     src/value_mapping_test.cpp
     src/mapping_locator_test.cpp
+    src/render_test.cpp
 )
 
 include( FetchContent )

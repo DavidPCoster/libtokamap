@@ -8,6 +8,7 @@
 
 #include "map_types/map_arguments.hpp"
 #include "utils/ram_cache.hpp"
+#include "utils/render.hpp"
 #include "utils/subset.hpp"
 
 libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments& arguments) const
@@ -15,7 +16,7 @@ libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments
     DataSourceArgs args = m_data_source_args;
     for (auto& [key, value] : args) {
         if (value.is_string()) {
-            value = inja::render(inja::render(value.get<std::string>(), arguments.global_data), arguments.global_data);
+            value = libtokamap::render(value.get<std::string>(), arguments.global_data);
         }
     }
     TypedDataArray array = m_data_source->get(args, arguments, m_ram_cache.get());
@@ -23,7 +24,7 @@ libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments
     // Render the slice string at runtime if it exists
     std::optional<std::string> rendered_slice;
     if (m_slice.has_value()) {
-        rendered_slice = inja::render(m_slice.value(), arguments.global_data);
+        rendered_slice = libtokamap::render(m_slice.value(), arguments.global_data);
     }
 
     update_array(array, rendered_slice, m_scale, m_offset);
