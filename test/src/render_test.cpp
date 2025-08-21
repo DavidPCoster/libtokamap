@@ -25,3 +25,24 @@ TEST_CASE("Test double render", "[render]") {
     std::string actual = render(input, globals);
     REQUIRE(actual == expected);
 }
+
+TEST_CASE("Test render conditionals", "[render]") {
+    std::string input = "{% if existsIn(at(FLUX_LOOPS, indices.0), \"LOOPV\") %}{{ at(FLUX_LOOPS, indices.0).LOOPV }}{% endif %}";
+    std::vector<inja::json> flux_loops = {
+        { { "LOOP_NAME", "loop1" }, { "LOOPV", "loopv1" } },
+        { { "LOOP_NAME", "loop2" } },
+    };
+    inja::json globals = {
+        {"FLUX_LOOPS", flux_loops},
+    };
+
+    globals["indices"] = {0};
+    std::string actual = render(input, globals);
+    std::string expected = "loopv1";
+    REQUIRE(actual == expected);
+
+    globals["indices"] = {1};
+    actual = render(input, globals);
+    expected = "";
+    REQUIRE(actual == expected);
+}
