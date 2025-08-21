@@ -5,13 +5,19 @@ constexpr auto ConfigSchema = R"(
     "type": "object",
     "properties": {
         "mapping_directory": {
-            "type": "string",
+            "type": "string"
         },
-        "schemas_directory": {
-            "type": "string",
+        "mapping_schema": {
+            "type": "string"
+        },
+        "globals_schema": {
+            "type": "string"
+        },
+        "mapping_config_schema": {
+            "type": "string"
         },
         "cache_enabled": {
-            "type": "boolean",
+            "type": "boolean"
         },
         "cache_size": {
             "type": "integer",
@@ -24,7 +30,7 @@ constexpr auto ConfigSchema = R"(
             }
         }
     },
-    "required": ["mapping_directory", "schemas_directory"],
+    "required": ["mapping_directory", "mapping_schema", "globals_schema", "mapping_config_schema"],
     "additionalProperties": false
 }
 )";

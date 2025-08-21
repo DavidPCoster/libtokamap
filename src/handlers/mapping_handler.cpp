@@ -24,6 +24,7 @@
 #include <valijson_nlohmann_bundled.hpp>
 #include <vector>
 
+#include "config_schema.hpp"
 #include "exceptions/exceptions.hpp"
 #include "map_types/base_mapping.hpp"
 #include "map_types/custom_mapping.hpp"
@@ -40,10 +41,21 @@
 #include "utils/render.hpp"
 #include "utils/syntax_parser.hpp"
 #include "utils/types.hpp"
-#include "config_schema.hpp"
 
 namespace
 {
+
+[[nodiscard]] valijson::Schema load_config_schema()
+{
+    nlohmann::json config_schema_json = nlohmann::json::parse(ConfigSchema);
+    valijson::adapters::NlohmannJsonAdapter config_schema_adapter{config_schema_json};
+
+    valijson::Schema config_schema;
+    valijson::SchemaParser parser;
+    parser.populateSchema(config_schema_adapter, config_schema);
+
+    return config_schema;
+}
 
 [[nodiscard]] nlohmann::json load_json_file(const std::filesystem::path& path)
 {
@@ -473,12 +485,7 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
 
 void libtokamap::MappingHandler::init(const std::filesystem::path& config_path)
 {
-    nlohmann::json config_schema_json = nlohmann::json::parse(ConfigSchema);
-    valijson::adapters::NlohmannJsonAdapter config_schema_adapter{config_schema_json};
-
-    valijson::Schema config_schema;
-    valijson::SchemaParser parser;
-    parser.populateSchema(config_schema_adapter, config_schema);
+    auto config_schema = load_config_schema();
 
     nlohmann::json config;
     if (config_path.extension() == ".json") {
@@ -493,6 +500,9 @@ void libtokamap::MappingHandler::init(const std::filesystem::path& config_path)
 
 void libtokamap::MappingHandler::init(const nlohmann::json& config)
 {
+    auto config_schema = load_config_schema();
+    validate(config, config_schema);
+
     if (m_init || !m_experiment_register.empty()) {
         return;
     }
