@@ -7,12 +7,6 @@ namespace libtokamap
 {
 
 nlohmann::json expand_syntactic_sugar(nlohmann::json input);
-
-namespace detail
-{
-
 std::string process_string_node(std::string value);
-
-} // namespace detail
 
 } // namespace libtokamap

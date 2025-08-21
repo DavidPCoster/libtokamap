@@ -62,7 +62,7 @@ void walk_json(nlohmann::json& root)
 
             auto& node = element.value();
             if (node.is_string()) {
-                node = libtokamap::detail::process_string_node(node);
+                node = libtokamap::process_string_node(node);
             } else if (node.is_object()) {
                 stack.push(&node);
             }
@@ -80,7 +80,7 @@ std::string trim(const std::string& line)
 
 } // namespace
 
-std::string libtokamap::detail::process_string_node(std::string value)
+std::string libtokamap::process_string_node(std::string value)
 {
     std::string result;
     auto iter = value.begin();

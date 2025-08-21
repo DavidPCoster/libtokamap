@@ -7,13 +7,7 @@ constexpr auto ConfigSchema = R"(
         "mapping_directory": {
             "type": "string"
         },
-        "mapping_schema": {
-            "type": "string"
-        },
-        "globals_schema": {
-            "type": "string"
-        },
-        "mapping_config_schema": {
+        "schemas_directory": {
             "type": "string"
         },
         "cache_enabled": {
@@ -23,14 +17,14 @@ constexpr auto ConfigSchema = R"(
             "type": "integer",
             "minimum": 0
         },
-        "custom_library_paths": {
+        "custom_function_libraries": {
             "type": "array",
             "items": {
                 "type": "string"
             }
         }
     },
-    "required": ["mapping_directory", "mapping_schema", "globals_schema", "mapping_config_schema"],
+    "required": ["mapping_directory", "schemas_directory"],
     "additionalProperties": false
 }
 )";
