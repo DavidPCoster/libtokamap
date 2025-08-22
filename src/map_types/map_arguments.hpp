@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <format>
 #include <limits>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -251,6 +252,26 @@ class TypedDataArray
         return ptr;
     }
 
+    template <typename To, typename From>
+    [[nodiscard]] TypedDataArray convert() {
+        if (m_type_index != std::type_index{typeid(From)}) {
+            throw libtokamap::DataTypeError{"invalid type given to convert"};
+        }
+
+        TypedDataArray new_array;
+
+        new_array.m_type_index = std::type_index{typeid(To)};
+        new_array.m_shape = m_shape;
+        new_array.m_size = m_size;
+        new_array.m_buffer = new char[m_size * sizeof(To)];
+        new_array.m_owning = true;
+
+        From* data = std::bit_cast<From*>(m_buffer);
+        std::copy(data, data + m_size, std::bit_cast<To*>(new_array.m_buffer));
+
+        return new_array;
+    }
+
 #if __cplusplus >= 202002L
     template <typename T> [[nodiscard]] std::span<T> span() const
     {
@@ -327,6 +348,7 @@ class TypedDataArray
         std::swap(m_size, other.m_size);
         std::swap(m_shape, other.m_shape);
         std::swap(m_owning, other.m_owning);
+        std::swap(m_trace, other.m_trace);
     };
     TypedDataArray& operator=(TypedDataArray&& other) noexcept
     {
@@ -335,8 +357,12 @@ class TypedDataArray
         std::swap(m_size, other.m_size);
         std::swap(m_shape, other.m_shape);
         std::swap(m_owning, other.m_owning);
+        std::swap(m_trace, other.m_trace);
         return *this;
     };
+
+    void set_trace(nlohmann::json trace) { m_trace = std::move(trace); }
+    [[nodiscard]] const nlohmann::json& trace() const { return m_trace; }
 
   private:
     char* m_buffer = nullptr;
@@ -344,6 +370,7 @@ class TypedDataArray
     size_t m_size;
     std::vector<size_t> m_shape;
     bool m_owning;
+    nlohmann::json m_trace;
 };
 
 class Mapping;
@@ -353,10 +380,12 @@ struct MapArguments {
     const nlohmann::json& global_data;
     std::type_index data_type;
     int rank;
+    bool trace_enabled;
 
     explicit MapArguments(const std::unordered_map<std::string, std::unique_ptr<Mapping>>& entries,
-                          const nlohmann::json& global_data, const std::type_index data_type, const int rank)
-        : entries{entries}, global_data{global_data}, data_type{data_type}, rank{rank}
+                          const nlohmann::json& global_data, const std::type_index data_type, const int rank,
+                          const bool trace_enabled)
+        : entries{entries}, global_data{global_data}, data_type{data_type}, rank{rank}, trace_enabled{trace_enabled}
     {
     }
 };

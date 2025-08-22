@@ -32,13 +32,14 @@ class DataSourceMapping : public Mapping
 {
   public:
     DataSourceMapping() = delete;
-    DataSourceMapping(DataSource* m_data_source, DataSourceArgs data_source_args, std::optional<float> offset,
+    DataSourceMapping(std::string name, DataSource* m_data_source, DataSourceArgs data_source_args, std::optional<float> offset,
                       std::optional<float> scale, std::optional<std::string> slice,
                       std::shared_ptr<libtokamap::RamCache> ram_cache);
 
     [[nodiscard]] TypedDataArray map(const MapArguments& arguments) const override;
 
   private:
+    std::string m_name;
     DataSource* m_data_source;
     DataSourceArgs m_data_source_args;
     std::optional<float> m_offset;

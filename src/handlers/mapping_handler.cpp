@@ -326,7 +326,7 @@ libtokamap::TypedDataArray libtokamap::MappingHandler::map(const ExperimentName&
         attributes[key] = value;
     }
 
-    const libtokamap::MapArguments map_arguments{mappings, attributes, data_type, rank};
+    const libtokamap::MapArguments map_arguments{mappings, attributes, data_type, rank, m_trace_enabled};
 
     return mappings.at(map_path)->map(map_arguments);
 }
@@ -408,8 +408,8 @@ void init_data_source_mapping(libtokamap::MappingStore& map_store, const libtoka
     }
     auto* data_source = data_sources.at(data_source_name).get();
 
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::DataSourceMapping>(data_source, args, offset,
-                                                                                        scale, slice, ram_cache));
+    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::DataSourceMapping>(
+                                            data_source_name, data_source, args, offset, scale, slice, ram_cache));
 }
 
 void init_dim_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
@@ -541,6 +541,8 @@ void libtokamap::MappingHandler::init(const nlohmann::json& config)
 
     m_cache_enabled = m_ram_cache != nullptr;
     m_init = true;
+
+    m_trace_enabled = config.contains("trace_enabled") && config.at("trace_enabled").get<bool>();
 
     if (config.contains("custom_function_libraries")) {
         std::vector<std::filesystem::path> paths =

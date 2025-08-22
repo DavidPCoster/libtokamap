@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <nlohmann/json.hpp>
+#include <stack>
+#include <string>
 
 #include "map_arguments.hpp"
 

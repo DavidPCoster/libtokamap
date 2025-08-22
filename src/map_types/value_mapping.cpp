@@ -160,6 +160,8 @@ libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val,
 
 libtokamap::TypedDataArray libtokamap::ValueMapping::map(const MapArguments& arguments) const
 {
+    libtokamap::TypedDataArray result;
+
     const auto temp_val = m_value;
     if (temp_val.is_discarded() or temp_val.is_binary() or temp_val.is_null()) {
         throw libtokamap::JsonError{"map unrecognised json value type"};
@@ -173,14 +175,17 @@ libtokamap::TypedDataArray libtokamap::ValueMapping::map(const MapArguments& arg
 
         // deduce type if true
         if (all_number) {
-            return type_deduce_array(temp_val);
+            result = type_deduce_array(temp_val);
         }
 
     } else if (temp_val.is_primitive()) {
-        return type_deduce_primitive(temp_val, arguments.global_data, arguments.data_type, arguments.rank);
+        result = type_deduce_primitive(temp_val, arguments.global_data, arguments.data_type, arguments.rank);
     } else {
         throw libtokamap::ProcessingError{"map not structured or primitive"};
     }
 
-    return {};
+    if (arguments.trace_enabled) {
+        result.set_trace({{"map_type", "value"}, {"value", m_value}});
+    }
+    return result;
 }

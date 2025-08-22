@@ -32,6 +32,7 @@ class CustomMapping : public Mapping
     [[nodiscard]] TypedDataArray map(const MapArguments& arguments) const override;
 
   private:
+    std::string m_function_name;
     const LibraryFunction* m_function;
     CustomMappingInputMap m_input_map;
     CustomMappingParams m_params;

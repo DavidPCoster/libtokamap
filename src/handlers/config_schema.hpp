@@ -10,6 +10,9 @@ constexpr auto ConfigSchema = R"(
         "schemas_directory": {
             "type": "string"
         },
+        "trace_enabled": {
+            "type": "boolean"
+        },
         "cache_enabled": {
             "type": "boolean"
         },

@@ -14,5 +14,5 @@ libtokamap::MapArguments makeMapArguments(const std::type_index data_type, const
     static std::unordered_map<std::string, std::unique_ptr<libtokamap::Mapping>> empty_entries;
     static nlohmann::json empty_global_data = nlohmann::json::object();
 
-    return libtokamap::MapArguments(empty_entries, empty_global_data, data_type, rank);
+    return libtokamap::MapArguments(empty_entries, empty_global_data, data_type, rank, true);
 }

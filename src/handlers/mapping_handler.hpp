@@ -57,6 +57,7 @@ class MappingHandler
     DataSourceRegistry m_data_sources;
     ExperimentRegisterStore m_experiment_register;
     bool m_init = false;
+    bool m_trace_enabled = false;
 
     std::string m_dd_version;
     std::filesystem::path m_mapping_dir;

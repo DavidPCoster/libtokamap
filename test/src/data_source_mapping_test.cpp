@@ -38,7 +38,8 @@ TEST_CASE("Creating new PluginMapping", "[plugin_mapping]")
         std::optional<std::string> slice = {};
         std::optional<std::string> function = {};
         std::shared_ptr<libtokamap::RamCache> ram_cache = nullptr;
-        auto mapping = std::make_unique<DataSourceMapping>(test_source.get(), request_args, offset, scale, slice, ram_cache);
+        auto mapping = std::make_unique<DataSourceMapping>("test", test_source.get(), request_args, offset, scale,
+                                                           slice, ram_cache);
         REQUIRE(mapping != nullptr);
     }
 }

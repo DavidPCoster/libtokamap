@@ -27,6 +27,10 @@ uint64_t map(libtokamap::MappingHandler& mapping_handler, const std::string& map
     padding.resize(std::max(key_length - static_cast<int64_t>(path.size()), int64_t{0}), ' ');
     std::cout << path << padding << " -> " << result.to_string() << "\n";
 
+    if (!result.trace().empty()) {
+        std::cout << "trace:\n" << result.trace().dump(2) << "\n";
+    }
+
     if (result.type_index() == std::type_index{typeid(uint64_t)}) {
         return *std::bit_cast<uint64_t*>(result.buffer());
     }
@@ -40,6 +44,7 @@ void map_all(libtokamap::MappingHandler& mapping_handler, const std::string& map
     for (auto coil = 0UL; coil < num_coils; ++coil) {
         std::string path = "magnetics/coil[" + std::to_string(coil) + "]";
         map(mapping_handler, mapping, path + "/name");
+        map(mapping_handler, mapping, path + "/area");
         auto num_positions = map(mapping_handler, mapping, path + "/position");
         for (auto position = 0UL; position < num_positions; ++position) {
             std::string pos_path = path + ("/position[" + std::to_string(position) + "]");
@@ -75,7 +80,8 @@ int main()
         auto schema_root = root.parent_path().parent_path() / "schemas";
         nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},
                                  {"schemas_directory", schema_root.string()},
-                                 {"custom_function_libraries", custom_function_libraries}};
+                                 {"custom_function_libraries", custom_function_libraries},
+                                 {"trace_enabled", true}};
         mapping_handler.init(config);
 
         const char* mapping = "EXAMPLE";

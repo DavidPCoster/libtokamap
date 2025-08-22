@@ -64,7 +64,7 @@ constexpr auto number_re = ctll::fixed_string{R"(\d+)"};
 } // namespace
 
 libtokamap::TypedDataArray JSONDataSource::get(const libtokamap::DataSourceArgs& map_args,
-                                               const libtokamap::MapArguments& /*arguments*/,
+                                               const libtokamap::MapArguments& arguments,
                                                libtokamap::RamCache* /*ram_cache*/)
 {
     if (!map_args.contains("file_name")) {
@@ -104,9 +104,17 @@ libtokamap::TypedDataArray JSONDataSource::get(const libtokamap::DataSourceArgs&
         tokens.pop_front();
     }
 
-    return parse(value);
+    auto result = parse(value);
+    if (arguments.trace_enabled) {
+        std::string version = std::format("{}.{}.{}", NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR,
+                                          NLOHMANN_JSON_VERSION_PATCH);
+        result.set_trace({{"file", path}, {"json_library", {{"name", "nlohmann"}, {"version", version}}}});
+    }
+
+    return result;
 }
 
-void LibTokaMapFactoryLoader(libtokamap::FactoryEntryInterface& factory) {
+void LibTokaMapFactoryLoader(libtokamap::FactoryEntryInterface& factory)
+{
     factory.function = json_data_source_factory;
 }

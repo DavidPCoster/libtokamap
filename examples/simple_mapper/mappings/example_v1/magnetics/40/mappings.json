@@ -18,6 +18,20 @@
       "signal": "coils/{{ #0 }}/name"
     }
   },
+  "_coil[#]/radius": {
+    "MAP_TYPE": "DATA_SOURCE",
+    "DATA_SOURCE": "JSON",
+    "ARGS": {
+      "signal": "coils/{{ #0 }}/radius"
+    }
+  },
+  "coil[#]/area": {
+    "MAP_TYPE": "EXPR",
+    "EXPR": "pi * r^2",
+    "PARAMETERS": {
+      "r": "_coil[#]/radius"
+    }
+  },
   "coil[#]/position": {
     "MAP_TYPE": "DIMENSION",
     "DIM_PROBE": "_coil[#]/position"
