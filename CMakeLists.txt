@@ -62,9 +62,16 @@ set( SOURCES
 )
 
 set( UTIL_HEADERS
+    src/utils/algorithm.hpp
+    src/utils/indices.hpp
+    src/utils/library_loader.hpp
+    src/utils/mapping_locator.hpp
     src/utils/ram_cache.hpp
+    src/utils/render.hpp
     src/utils/scale_offset.hpp
     src/utils/subset.hpp
+    src/utils/syntax_parser.hpp
+    src/utils/types.hpp
 )
 
 set( MAP_TYPE_HEADERS
@@ -81,10 +88,22 @@ set( HANDLER_HEADERS
     src/handlers/mapping_handler.hpp
 )
 
+set( EXCEPTIONS_HEADERS
+    src/exceptions/exceptions.hpp
+)
+
 set( HEADERS
     ${UTIL_HEADERS}
     ${MAP_TYPE_HEADERS}
     ${HANDLER_HEADERS}
+    ${EXCEPTIONS_HEADERS}
+)
+
+set( EXT_HEADERS
+    ext_include/nlohmann/json.hpp
+    ext_include/valijson_nlohmann_bundled.hpp
+    ext_include/exprtk/exprtk.hpp
+    ext_include/inja/inja.hpp
 )
 
 configure_file(
@@ -116,9 +135,20 @@ target_compile_options( libtokamap PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wall -Werror -Wpedantic>
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Werror -Wpedantic>
 )
+target_sources( libtokamap PUBLIC
+    FILE_SET HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+    FILES ${HEADERS}
+)
+target_sources( libtokamap PUBLIC
+    FILE_SET HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ext_include
+    FILES ${EXT_HEADERS}
+)
 set( PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/libtokamap.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/include/version.hpp
+    ${CMAKE_CURRENT_BINARY_DIR}/include/config.hpp
 )
 set_target_properties( libtokamap PROPERTIES
     OUTPUT_NAME tokamap
@@ -129,9 +159,12 @@ add_library( LibTokaMap::libtokamap ALIAS libtokamap )
 
 install( TARGETS libtokamap
     EXPORT tokamapTargets
-    DESTINATION lib
-    INCLUDES DESTINATION include
-    PUBLIC_HEADER DESTINATION include
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include/libtokamap
+    PUBLIC_HEADER DESTINATION include/libtokamap
+    FILE_SET HEADERS DESTINATION include/libtokamap
 )
 
 install( EXPORT tokamapTargets
