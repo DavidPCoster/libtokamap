@@ -1,12 +1,12 @@
 #include "map_types/dim_mapping.hpp"
 
-#include <complex>
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 
 #include "exceptions/exceptions.hpp"
 #include "map_types/base_mapping.hpp"
 #include "map_types/map_arguments.hpp"
+#include "utils/typed_data_array.hpp"
 
 libtokamap::TypedDataArray libtokamap::DimMapping::map(const MapArguments& arguments) const
 {

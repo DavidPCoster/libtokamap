@@ -1,8 +1,9 @@
 #pragma once
 
-#include "base_mapping.hpp"
+#include "map_types/base_mapping.hpp"
 #include "map_types/map_arguments.hpp"
 #include "utils/ram_cache.hpp"
+#include "utils/typed_data_array.hpp"
 
 #include <cstddef>
 #include <functional>

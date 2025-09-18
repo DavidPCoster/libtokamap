@@ -14,6 +14,7 @@
 #include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
 #include "utils/render.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace
 {
@@ -32,7 +33,9 @@ template <> std::string name<double>() { return "double"; }
 template <> std::string name<int32_t>() { return "int32_t"; }
 // template <> std::string name<int64_t>() { return "int64_t"; }
 
-template <typename T> std::enable_if_t<std::is_scalar_v<T>, T> try_convert(const std::string& input)
+template <typename T>
+T try_convert(const std::string& input)
+    requires std::is_scalar_v<T>
 {
     size_t end = 0;
     try {
@@ -47,8 +50,8 @@ template <typename T> std::enable_if_t<std::is_scalar_v<T>, T> try_convert(const
 }
 
 template <typename ARRAY_T>
-std::enable_if_t<std::is_array_v<ARRAY_T>, std::vector<std::remove_all_extents_t<ARRAY_T>>>
-try_convert(const std::string& input)
+std::vector<std::remove_all_extents_t<ARRAY_T>> try_convert(const std::string& input)
+    requires std::is_array_v<ARRAY_T>
 {
     using T = std::remove_extent_t<ARRAY_T>;
     try {
@@ -171,7 +174,7 @@ libtokamap::TypedDataArray libtokamap::ValueMapping::map(const MapArguments& arg
         // Check all members of array are numbers
         // (Add array of strings if necessary)
         const bool all_number =
-            std::all_of(temp_val.begin(), temp_val.end(), [](const nlohmann::json& els) { return els.is_number(); });
+            std::ranges::all_of(temp_val, [](const nlohmann::json& els) { return els.is_number(); });
 
         // deduce type if true
         if (all_number) {

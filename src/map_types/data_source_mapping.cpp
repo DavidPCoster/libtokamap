@@ -13,9 +13,11 @@
 #include "map_types/map_arguments.hpp"
 #include "utils/render.hpp"
 #include "utils/subset.hpp"
+#include "utils/typed_data_array.hpp"
 
 std::unordered_map<libtokamap::DataSourceCacheKey, int> libtokamap::DataSourceMapping::m_data_source_count = {};
-std::unordered_map<libtokamap::DataSourceCacheKey, libtokamap::TypedDataArray> libtokamap::DataSourceMapping::m_data_source_cache = {};
+std::unordered_map<libtokamap::DataSourceCacheKey, libtokamap::TypedDataArray>
+    libtokamap::DataSourceMapping::m_data_source_cache = {};
 
 libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments& arguments) const
 {

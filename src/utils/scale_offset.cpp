@@ -3,10 +3,9 @@
 #include <bit>
 #include <cstdlib>
 #include <span>
-#include <stdexcept>
-#include "exceptions/exceptions.hpp"
 
-#include "map_types/map_arguments.hpp"
+#include "exceptions/exceptions.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace
 {

@@ -1,18 +1,12 @@
 #pragma once
 
-#include <chrono>
-#include <cstdint>
 #include <cstdlib>
 #include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <ios>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <vector>
 
-#include "map_types/map_arguments.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace libtokamap
 {

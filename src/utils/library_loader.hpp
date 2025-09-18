@@ -7,13 +7,12 @@
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
-#include <typeindex>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "exceptions/exceptions.hpp"
-#include "map_types/map_arguments.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace libtokamap
 {
@@ -103,8 +102,7 @@ struct FactoryEntryInterface {
 
 DataSourceFactory load_data_source_factory(const std::filesystem::path& library_path);
 
-template <typename T>
-std::string to_string()
+template <typename T> std::string to_string()
 {
     int status = 0;
     return abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status);

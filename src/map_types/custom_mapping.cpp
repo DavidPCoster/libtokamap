@@ -6,7 +6,6 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <iostream>
 
 #include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"

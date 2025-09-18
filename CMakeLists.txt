@@ -40,6 +40,7 @@ set( UTIL_SOURCES
     src/utils/scale_offset.cpp
     src/utils/subset.cpp
     src/utils/syntax_parser.cpp
+    src/utils/typed_data_array.cpp
 )
 
 set( MAP_TYPE_SOURCES
@@ -47,7 +48,6 @@ set( MAP_TYPE_SOURCES
     src/map_types/data_source_mapping.cpp
     src/map_types/dim_mapping.cpp
     src/map_types/expr_mapping.cpp
-    src/map_types/map_arguments.cpp
     src/map_types/value_mapping.cpp
 )
 

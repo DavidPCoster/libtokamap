@@ -1,5 +1,6 @@
 #include "syntax_parser.hpp"
 
+#include <cstddef>
 #include <ctre/ctre.hpp>
 #include <format>
 #include <nlohmann/json.hpp>

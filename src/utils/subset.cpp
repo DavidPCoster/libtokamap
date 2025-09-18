@@ -5,12 +5,11 @@
 #include <cstdlib>
 #include <ctre/ctre.hpp>
 #include <optional>
-#include <stdexcept>
 #include <string>
-#include "exceptions/exceptions.hpp"
 #include <vector>
 
-#include "map_types/map_arguments.hpp"
+#include "exceptions/exceptions.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace
 {

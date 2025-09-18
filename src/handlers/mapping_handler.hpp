@@ -10,9 +10,9 @@
 #include <vector>
 
 #include "map_types/data_source_mapping.hpp"
-#include "map_types/map_arguments.hpp"
 #include "utils/library_loader.hpp"
 #include "utils/ram_cache.hpp"
+#include "utils/typed_data_array.hpp"
 #include "utils/types.hpp"
 #include "valijson_nlohmann_bundled.hpp"
 

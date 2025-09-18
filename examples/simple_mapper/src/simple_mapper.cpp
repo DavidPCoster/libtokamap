@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <libtokamap.hpp>
 #include <nlohmann/json.hpp>
@@ -14,7 +15,8 @@
 namespace
 {
 
-uint64_t map(libtokamap::MappingHandler& mapping_handler, const std::string& mapping, const std::string& path)
+uint64_t map(libtokamap::MappingHandler& mapping_handler, nlohmann::json& trace, const std::string& mapping,
+             const std::string& path)
 {
     std::type_index data_type = std::type_index{typeid(char)};
     int rank = 1;
@@ -28,7 +30,7 @@ uint64_t map(libtokamap::MappingHandler& mapping_handler, const std::string& map
     std::cout << path << padding << " -> " << result.to_string() << "\n";
 
     if (!result.trace().empty()) {
-        std::cout << "trace:\n" << result.trace().dump(2) << "\n";
+        trace[path] = result.trace();
     }
 
     if (result.type_index() == std::type_index{typeid(uint64_t)}) {
@@ -37,25 +39,29 @@ uint64_t map(libtokamap::MappingHandler& mapping_handler, const std::string& map
     return 0;
 }
 
-void map_all(libtokamap::MappingHandler& mapping_handler, const std::string& mapping)
+nlohmann::json map_all(libtokamap::MappingHandler& mapping_handler, const std::string& mapping)
 {
-    map(mapping_handler, mapping, "magnetics/version");
-    auto num_coils = map(mapping_handler, mapping, "magnetics/coil");
+    nlohmann::json trace;
+
+    map(mapping_handler, trace, mapping, "magnetics/version");
+    auto num_coils = map(mapping_handler, trace, mapping, "magnetics/coil");
     for (auto coil = 0UL; coil < num_coils; ++coil) {
         std::string path = "magnetics/coil[" + std::to_string(coil) + "]";
-        map(mapping_handler, mapping, path + "/name");
-        map(mapping_handler, mapping, path + "/area");
-        auto num_positions = map(mapping_handler, mapping, path + "/position");
+        map(mapping_handler, trace, mapping, path + "/name");
+        map(mapping_handler, trace, mapping, path + "/area");
+        auto num_positions = map(mapping_handler, trace, mapping, path + "/position");
         for (auto position = 0UL; position < num_positions; ++position) {
             std::string pos_path = path + ("/position[" + std::to_string(position) + "]");
-            map(mapping_handler, mapping, pos_path + "/r");
-            map(mapping_handler, mapping, pos_path + "/z");
+            map(mapping_handler, trace, mapping, pos_path + "/r");
+            map(mapping_handler, trace, mapping, pos_path + "/z");
         }
-        map(mapping_handler, mapping, path + "/flux/time");
-        map(mapping_handler, mapping, path + "/flux/data");
-        map(mapping_handler, mapping, path + "/flux/data_scaled");
-        map(mapping_handler, mapping, path + "/flux/dot_product");
+        map(mapping_handler, trace, mapping, path + "/flux/time");
+        map(mapping_handler, trace, mapping, path + "/flux/data");
+        map(mapping_handler, trace, mapping, path + "/flux/data_scaled");
+        map(mapping_handler, trace, mapping, path + "/flux/dot_product");
     }
+
+    return trace;
 }
 
 } // namespace
@@ -86,7 +92,9 @@ int main()
         mapping_handler.init(config);
 
         const char* mapping = "EXAMPLE";
-        map_all(mapping_handler, mapping);
+        auto trace = map_all(mapping_handler, mapping);
+
+        std::ofstream("trace.json") << trace.dump(4);
     } catch (std::exception& ex) {
         std::cerr << "error: " << ex.what() << "\n";
         return 1;

@@ -2,10 +2,9 @@
 
 #include <cstdint>
 #include <nlohmann/json.hpp>
-#include <stack>
-#include <string>
 
-#include "map_arguments.hpp"
+#include "map_types/map_arguments.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace libtokamap
 {

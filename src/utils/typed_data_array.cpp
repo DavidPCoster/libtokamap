@@ -1,5 +1,4 @@
-#include "map_arguments.hpp"
-#include "exceptions/exceptions.hpp"
+#include "typed_data_array.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +14,7 @@
 
 namespace
 {
+
 using Indices = std::vector<size_t>;
 using IndicesList = std::vector<Indices>;
 
