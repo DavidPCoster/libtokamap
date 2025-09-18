@@ -4,16 +4,20 @@
 #include "map_types/map_arguments.hpp"
 #include "utils/ram_cache.hpp"
 
-#include <memory>
+#include <cstddef>
+#include <functional>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace libtokamap
 {
 
+using DataSourceName = std::string;
 using DataSourceArgs = std::unordered_map<std::string, nlohmann::json>;
+using DataSourceCacheKey = std::pair<libtokamap::DataSourceName, nlohmann::json>;
 
 class DataSource
 {
@@ -32,21 +36,31 @@ class DataSourceMapping : public Mapping
 {
   public:
     DataSourceMapping() = delete;
-    DataSourceMapping(std::string name, DataSource* m_data_source, DataSourceArgs data_source_args, std::optional<float> offset,
-                      std::optional<float> scale, std::optional<std::string> slice,
-                      std::shared_ptr<libtokamap::RamCache> ram_cache);
+    DataSourceMapping(std::string name, DataSource* m_data_source, DataSourceArgs data_source_args,
+                      std::optional<float> offset, std::optional<float> scale, std::optional<std::string> slice);
 
     [[nodiscard]] TypedDataArray map(const MapArguments& arguments) const override;
 
   private:
-    std::string m_name;
+    DataSourceName m_name;
     DataSource* m_data_source;
     DataSourceArgs m_data_source_args;
     std::optional<float> m_offset;
     std::optional<float> m_scale;
     std::optional<std::string> m_slice;
-    std::shared_ptr<libtokamap::RamCache> m_ram_cache;
-    bool m_cache_enabled;
+
+    static constexpr int CacheThreshold = 2;
+    static std::unordered_map<DataSourceCacheKey, int> m_data_source_count;
+    static std::unordered_map<DataSourceCacheKey, TypedDataArray> m_data_source_cache;
 };
 
 } // namespace libtokamap
+
+namespace std
+{
+
+template <> struct hash<libtokamap::DataSourceCacheKey> {
+    size_t operator()(const libtokamap::DataSourceCacheKey& key) const;
+};
+
+} // namespace std

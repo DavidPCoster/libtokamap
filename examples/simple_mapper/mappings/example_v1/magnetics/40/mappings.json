@@ -71,6 +71,14 @@
       "signal": "coils/{{ #0 }}/flux/data"
     }
   },
+  "coil[#]/flux/data_scaled": {
+    "MAP_TYPE": "DATA_SOURCE",
+    "DATA_SOURCE": "JSON",
+    "ARGS": {
+      "signal": "coils/{{ #0 }}/flux/data"
+    },
+    "SCALE": 2.0
+  },
   "coil[#]/flux/dot_product": {
     "MAP_TYPE": "CUSTOM",
     "LIBRARY": "custom",

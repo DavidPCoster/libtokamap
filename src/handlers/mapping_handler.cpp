@@ -319,6 +319,10 @@ libtokamap::TypedDataArray libtokamap::MappingHandler::map(const ExperimentName&
         throw libtokamap::MappingError{"failed to find mapping for '" + path + "'"};
     }
 
+    if (m_mapping_cache.contains(map_path)) {
+        return m_mapping_cache.at(map_path).clone();
+    }
+
     // Add request indices to globals
     attributes["indices"] = indices;
 
@@ -326,9 +330,14 @@ libtokamap::TypedDataArray libtokamap::MappingHandler::map(const ExperimentName&
         attributes[key] = value;
     }
 
-    const libtokamap::MapArguments map_arguments{mappings, attributes, data_type, rank, m_trace_enabled};
+    const libtokamap::MapArguments map_arguments{mappings,        attributes,      data_type,        rank,
+                                                 m_trace_enabled, m_cache_enabled, m_ram_cache.get()};
 
-    return mappings.at(map_path)->map(map_arguments);
+    auto result = mappings.at(map_path)->map(map_arguments);
+    if (m_cache_enabled && m_mapping_counts.get(map_path) >= MappingCacheThreshold) {
+        m_mapping_cache[map_path] = result.clone();
+    }
+    return result;
 }
 
 namespace
@@ -373,12 +382,11 @@ void init_value_mapping(libtokamap::MappingStore& map_store, const libtokamap::M
                         const nlohmann::json& value)
 {
     const auto& value_json = value.at("VALUE");
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::ValueMapping>(value_json));
+    map_store.emplace(mapping_name, std::make_unique<libtokamap::ValueMapping>(value_json));
 }
 
 void init_data_source_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
                               const nlohmann::json& value, const nlohmann::json& group_attributes,
-                              std::shared_ptr<libtokamap::RamCache>& ram_cache,
                               const libtokamap::DataSourceRegistry& data_sources)
 {
     if (!value.contains("DATA_SOURCE")) {
@@ -408,35 +416,43 @@ void init_data_source_mapping(libtokamap::MappingStore& map_store, const libtoka
     }
     auto* data_source = data_sources.at(data_source_name).get();
 
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::DataSourceMapping>(
-                                            data_source_name, data_source, args, offset, scale, slice, ram_cache));
+    map_store.emplace(mapping_name, std::make_unique<libtokamap::DataSourceMapping>(data_source_name, data_source, args,
+                                                                                    offset, scale, slice));
 }
 
 void init_dim_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
-                      const nlohmann::json& value)
+                      const nlohmann::json& value, libtokamap::MappingCounts& mapping_counts)
 {
-    map_store.try_emplace(mapping_name,
-                          std::make_unique<libtokamap::DimMapping>(value["DIM_PROBE"].get<std::string>()));
+    auto dim_probe = value["DIM_PROBE"].get<std::string>();
+    map_store.emplace(mapping_name, std::make_unique<libtokamap::DimMapping>(dim_probe));
+    mapping_counts.increment(dim_probe);
 }
 
 void init_expr_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
-                       const nlohmann::json& value)
+                       const nlohmann::json& value, libtokamap::MappingCounts& mapping_counts)
 {
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::ExprMapping>(
-                                            value["EXPR"].get<std::string>(),
-                                            value["PARAMETERS"].get<std::unordered_map<std::string, std::string>>()));
+    auto expr = value["EXPR"].get<std::string>();
+    auto parameters = value["PARAMETERS"].get<std::unordered_map<std::string, std::string>>();
+    map_store.emplace(mapping_name, std::make_unique<libtokamap::ExprMapping>(expr, parameters));
+    for (const auto& [_key, value] : parameters) {
+        mapping_counts.increment(value);
+    }
 }
 
 void init_custom_mapping(libtokamap::MappingStore& map_store, const libtokamap::MappingName& mapping_name,
-                         const nlohmann::json& value, const std::vector<libtokamap::LibraryFunction>& library_functions)
+                         const nlohmann::json& value, const std::vector<libtokamap::LibraryFunction>& library_functions,
+                         libtokamap::MappingCounts& mapping_counts)
 {
     std::vector<std::filesystem::path> library_paths = {};
     auto library_name = value["LIBRARY"].get<libtokamap::LibraryName>();
     auto function_name = value["FUNCTION"].get<libtokamap::FunctionName>();
     auto input_map = value["INPUTS"].get<libtokamap::CustomMappingInputMap>();
     auto params = value["PARAMETERS"];
-    map_store.try_emplace(mapping_name, std::make_unique<libtokamap::CustomMapping>(library_functions, library_name,
-                                                                                    function_name, input_map, params));
+    map_store.emplace(mapping_name, std::make_unique<libtokamap::CustomMapping>(library_functions, library_name,
+                                                                                function_name, input_map, params));
+    for (const auto& [_key, value] : input_map) {
+        mapping_counts.increment(value);
+    }
 }
 
 void parse_globals(nlohmann::json& globals)
@@ -467,6 +483,9 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
         if (!value.contains("MAP_TYPE")) {
             throw libtokamap::MappingError{"required MAP_TYPE argument not found in mapping '" + mapping_name + "'"};
         }
+        if (map_store.contains(mapping_name)) {
+            throw libtokamap::MappingError{"duplicate mapping found '" + mapping_name + "'"};
+        }
 
         using libtokamap::MappingType;
         switch (value["MAP_TYPE"].get<MappingType>()) {
@@ -474,20 +493,22 @@ libtokamap::MappingStore libtokamap::MappingHandler::init_mappings(const nlohman
                 init_value_mapping(map_store, mapping_name, value);
                 break;
             case MappingType::DATA_SOURCE:
-                init_data_source_mapping(map_store, mapping_name, value, group_attributes, m_ram_cache, m_data_sources);
+                init_data_source_mapping(map_store, mapping_name, value, group_attributes, m_data_sources);
                 break;
             case MappingType::DIM:
-                init_dim_mapping(map_store, mapping_name, value);
+                init_dim_mapping(map_store, mapping_name, value, m_mapping_counts);
                 break;
             case MappingType::EXPR:
-                init_expr_mapping(map_store, mapping_name, value);
+                init_expr_mapping(map_store, mapping_name, value, m_mapping_counts);
                 break;
             case MappingType::CUSTOM:
-                init_custom_mapping(map_store, mapping_name, value, m_library_functions);
+                init_custom_mapping(map_store, mapping_name, value, m_library_functions, m_mapping_counts);
                 break;
             default:
                 break;
         }
+
+        m_mapping_counts.increment(mapping_name);
     }
     return map_store;
 }

@@ -9,7 +9,6 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
-#include <utility>
 
 #include "map_types/data_source_mapping.hpp"
 #include "map_types/map_arguments.hpp"
@@ -37,9 +36,8 @@ TEST_CASE("Creating new PluginMapping", "[plugin_mapping]")
         std::optional<float> scale = {};
         std::optional<std::string> slice = {};
         std::optional<std::string> function = {};
-        std::shared_ptr<libtokamap::RamCache> ram_cache = nullptr;
-        auto mapping = std::make_unique<DataSourceMapping>("test", test_source.get(), request_args, offset, scale,
-                                                           slice, ram_cache);
+        auto mapping =
+            std::make_unique<DataSourceMapping>("test", test_source.get(), request_args, offset, scale, slice);
         REQUIRE(mapping != nullptr);
     }
 }

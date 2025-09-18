@@ -53,6 +53,7 @@ void map_all(libtokamap::MappingHandler& mapping_handler, const std::string& map
         }
         map(mapping_handler, mapping, path + "/flux/time");
         map(mapping_handler, mapping, path + "/flux/data");
+        map(mapping_handler, mapping, path + "/flux/data_scaled");
         map(mapping_handler, mapping, path + "/flux/dot_product");
     }
 }

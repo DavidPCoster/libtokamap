@@ -1,26 +1,42 @@
 #include "data_source_mapping.hpp"
 
+#include <cstddef>
+#include <functional>
 #include <inja/inja.hpp>
-#include <memory>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 
+#include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
-#include "utils/ram_cache.hpp"
 #include "utils/render.hpp"
 #include "utils/subset.hpp"
 
+std::unordered_map<libtokamap::DataSourceCacheKey, int> libtokamap::DataSourceMapping::m_data_source_count = {};
+std::unordered_map<libtokamap::DataSourceCacheKey, libtokamap::TypedDataArray> libtokamap::DataSourceMapping::m_data_source_cache = {};
+
 libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments& arguments) const
 {
+    TypedDataArray array;
+
     DataSourceArgs args = m_data_source_args;
     for (auto& [key, value] : args) {
         if (value.is_string()) {
             value = libtokamap::render(value.get<std::string>(), arguments.global_data);
         }
     }
-    TypedDataArray array = m_data_source->get(args, arguments, m_ram_cache.get());
+
+    DataSourceCacheKey cache_key = {m_name, args};
+    bool cache_hit = false;
+
+    if (arguments.cache_enabled && m_data_source_cache.contains(cache_key)) {
+        array = m_data_source_cache.at(cache_key).clone();
+        cache_hit = true;
+    } else {
+        array = m_data_source->get(args, arguments, arguments.ram_cache);
+    }
 
     // Render the slice string at runtime if it exists
     std::optional<std::string> rendered_slice;
@@ -45,15 +61,48 @@ libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments
         }
         array.set_trace(trace);
     }
+
+    DataSourceCacheKey unrendered_cache_key = {m_name, m_data_source_args};
+    if (!cache_hit && m_data_source_count.at(unrendered_cache_key) >= CacheThreshold) {
+        m_data_source_cache[cache_key] = array.clone();
+    }
+
     return array;
 }
 
-libtokamap::DataSourceMapping::DataSourceMapping(std::string name, DataSource* data_source,
+libtokamap::DataSourceMapping::DataSourceMapping(DataSourceName name, DataSource* data_source,
                                                  DataSourceArgs data_source_args, std::optional<float> offset,
-                                                 std::optional<float> scale, std::optional<std::string> slice,
-                                                 std::shared_ptr<libtokamap::RamCache> ram_cache)
+                                                 std::optional<float> scale, std::optional<std::string> slice)
     : m_name{std::move(name)}, m_data_source{data_source}, m_data_source_args{std::move(data_source_args)},
-      m_offset{offset}, m_scale{scale}, m_slice{std::move(slice)}, m_ram_cache{std::move(ram_cache)},
-      m_cache_enabled(m_ram_cache != nullptr)
+      m_offset{offset}, m_scale{scale}, m_slice{std::move(slice)}
 {
+    if (data_source == nullptr) {
+        throw TokaMapError{"data_source is nullptr"};
+    }
+    DataSourceCacheKey key{m_name, m_data_source_args};
+    m_data_source_count[key]++;
+}
+
+namespace
+{
+
+// taken from boost hash_combine
+template <class T> inline void hash_combine(std::size_t& seed, const T& value)
+{
+    constexpr std::size_t offset = 0x9e3779b9;
+    constexpr std::size_t left_shift = 6;
+    constexpr std::size_t right_shift = 2;
+
+    std::hash<T> hasher;
+    seed ^= hasher(value) + offset + (seed << left_shift) + (seed >> right_shift);
+}
+
+} // namespace
+
+size_t std::hash<libtokamap::DataSourceCacheKey>::operator()(const libtokamap::DataSourceCacheKey& key) const
+{
+    size_t hash = 0;
+    hash_combine(hash, key.first);
+    hash_combine(hash, key.second);
+    return hash;
 }

@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <format>
 #include <limits>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -17,6 +16,7 @@
 #include <vector>
 
 #include "exceptions/exceptions.hpp"
+#include "utils/ram_cache.hpp"
 
 namespace libtokamap
 {
@@ -76,6 +76,38 @@ inline DataType type_index_map(std::type_index type_index)
         return DataType::UInt64;
     }
     return DataType::Unknown;
+}
+
+inline size_t data_type_size(DataType type)
+{
+    switch (type) {
+        case DataType::Char:
+            return sizeof(char);
+        case DataType::Short:
+            return sizeof(short);
+        case DataType::Int:
+            return sizeof(int);
+        case DataType::Long:
+            return sizeof(long);
+        case DataType::UChar:
+            return sizeof(unsigned char);
+        case DataType::UShort:
+            return sizeof(unsigned short);
+        case DataType::UInt:
+            return sizeof(unsigned int);
+        case DataType::ULong:
+            return sizeof(unsigned long);
+        case DataType::Float:
+            return sizeof(float);
+        case DataType::Double:
+            return sizeof(double);
+        case DataType::Int64:
+            return sizeof(int64_t);
+        case DataType::UInt64:
+            return sizeof(uint64_t);
+        case DataType::Unknown:
+            return 0;
+    }
 }
 
 class SubsetInfo
@@ -171,6 +203,21 @@ class TypedDataArray
         }
     }
 
+    [[nodiscard]] TypedDataArray clone() const
+    {
+        TypedDataArray clone;
+        clone.m_type_index = m_type_index;
+        clone.m_size = m_size;
+        clone.m_shape = m_shape;
+        clone.m_owning = true;
+        auto data_type = type_index_map(m_type_index);
+        size_t type_size = data_type_size(data_type);
+        clone.m_buffer = static_cast<char*>(malloc(m_size * type_size));
+        std::memcpy(clone.m_buffer, m_buffer, m_size * type_size);
+        clone.m_trace = m_trace;
+        return clone;
+    }
+
     template <typename T> void apply(double scale_factor, double offset)
     {
         if (m_type_index != std::type_index{typeid(T)}) {
@@ -252,8 +299,8 @@ class TypedDataArray
         return ptr;
     }
 
-    template <typename To, typename From>
-    [[nodiscard]] TypedDataArray convert() {
+    template <typename To, typename From> [[nodiscard]] TypedDataArray convert()
+    {
         if (m_type_index != std::type_index{typeid(From)}) {
             throw libtokamap::DataTypeError{"invalid type given to convert"};
         }
@@ -381,11 +428,14 @@ struct MapArguments {
     std::type_index data_type;
     int rank;
     bool trace_enabled;
+    bool cache_enabled;
+    RamCache* ram_cache;
 
     explicit MapArguments(const std::unordered_map<std::string, std::unique_ptr<Mapping>>& entries,
                           const nlohmann::json& global_data, const std::type_index data_type, const int rank,
-                          const bool trace_enabled)
-        : entries{entries}, global_data{global_data}, data_type{data_type}, rank{rank}, trace_enabled{trace_enabled}
+                          const bool trace_enabled, const bool cache_enabled, RamCache* ram_cache)
+        : entries{entries}, global_data{global_data}, data_type{data_type}, rank{rank}, trace_enabled{trace_enabled},
+          cache_enabled{cache_enabled}, ram_cache{ram_cache}
     {
     }
 };
