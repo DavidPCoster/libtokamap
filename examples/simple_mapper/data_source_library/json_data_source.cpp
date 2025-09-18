@@ -6,6 +6,7 @@
 #include <ctre/ctre.hpp>
 #include <deque>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <libtokamap.hpp>
 #include <memory>

@@ -16,4 +16,5 @@
 #include <utils/scale_offset.hpp>            // IWYU pragma: export.
 #include <utils/subset.hpp>                  // IWYU pragma: export.
 #include <utils/syntax_parser.hpp>           // IWYU pragma: export.
+#include <utils/typed_data_array.hpp>        // IWYU pragma: export.
 #include <version.hpp>                       // IWYU pragma: export.
