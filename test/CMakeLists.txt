@@ -33,6 +33,9 @@ FetchContent_MakeAvailable( Catch2 )
 # Create test executable
 add_executable( libtokamap_tests ${TEST_SOURCES} )
 
+# include( Utils )
+# enable_coverage( libtokamap_tests )
+
 # INCLUDE
 target_include_directories( libtokamap_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src

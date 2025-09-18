@@ -41,6 +41,7 @@
 #include "utils/ram_cache.hpp"
 #include "utils/render.hpp"
 #include "utils/syntax_parser.hpp"
+#include "utils/typed_data_array.hpp"
 #include "utils/types.hpp"
 
 namespace
@@ -165,10 +166,6 @@ void uppercase_keys(nlohmann::json& data)
 [[nodiscard]] nlohmann::json load_json(const std::filesystem::path& file_path, bool to_upper = false)
 {
     auto json = load_json_file(file_path);
-    // expand syntactic sugar
-    for (const auto& [key, value] : json.items()) {
-        value = libtokamap::expand_syntactic_sugar(value);
-    }
     if (to_upper) {
         uppercase_keys(json);
     }
