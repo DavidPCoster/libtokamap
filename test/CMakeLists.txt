@@ -12,13 +12,14 @@ set( CMAKE_CXX_EXTENSIONS OFF )
 
 set( TEST_SOURCES
     src/data_source_mapping_test.cpp
+    src/dim_mapping_test.cpp
     src/indices_test.cpp
+    src/mapping_locator_test.cpp
     src/parse_slices_test.cpp
+    src/render_test.cpp
     src/syntax_parser_test.cpp
     src/typed_data_array_test.cpp
     src/value_mapping_test.cpp
-    src/mapping_locator_test.cpp
-    src/render_test.cpp
 )
 
 include( FetchContent )
@@ -42,19 +43,7 @@ target_include_directories( libtokamap_tests PRIVATE
 target_link_libraries( libtokamap_tests
     PRIVATE
     Catch2::Catch2WithMain
-    test_helpers
     LibTokaMap::libtokamap
-)
-
-# Test helpers library
-add_library( test_helpers STATIC src/test_helpers.cpp )
-target_include_directories( test_helpers PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../src
-    ${CMAKE_CURRENT_SOURCE_DIR}/../ext_include
-)
-target_link_libraries( test_helpers PUBLIC
-    Catch2::Catch2
 )
 
 # CTest integration
