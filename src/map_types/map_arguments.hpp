@@ -17,6 +17,7 @@
 
 #include "exceptions/exceptions.hpp"
 #include "utils/ram_cache.hpp"
+#include "utils/compiler.hpp"
 
 namespace libtokamap
 {
@@ -108,6 +109,7 @@ inline size_t data_type_size(DataType type)
         case DataType::Unknown:
             return 0;
     }
+    LIBTOKAMAP_UNREACHABLE
 }
 
 class SubsetInfo
