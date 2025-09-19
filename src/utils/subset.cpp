@@ -98,7 +98,7 @@ void apply_subset(libtokamap::TypedDataArray& input, const std::optional<std::st
 void apply_scale_offset(libtokamap::TypedDataArray& input, std::optional<float> scale_factor,
                         std::optional<float> offset)
 {
-    if (!scale_factor && !offset) {
+    if (input.empty() || (!scale_factor && !offset)) {
         return;
     }
     using libtokamap::DataType;
