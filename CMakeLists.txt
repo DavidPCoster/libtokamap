@@ -37,7 +37,6 @@ set( UTIL_SOURCES
     src/utils/mapping_locator.cpp
     src/utils/ram_cache.cpp
     src/utils/render.cpp
-    src/utils/scale_offset.cpp
     src/utils/subset.cpp
     src/utils/syntax_parser.cpp
     src/utils/typed_data_array.cpp
@@ -68,7 +67,6 @@ set( UTIL_HEADERS
     src/utils/mapping_locator.hpp
     src/utils/ram_cache.hpp
     src/utils/render.hpp
-    src/utils/scale_offset.hpp
     src/utils/subset.hpp
     src/utils/syntax_parser.hpp
     src/utils/types.hpp
