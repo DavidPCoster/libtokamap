@@ -43,6 +43,7 @@
 #include "utils/syntax_parser.hpp"
 #include "utils/typed_data_array.hpp"
 #include "utils/types.hpp"
+#include "utils/profiler.hpp"
 
 namespace
 {
@@ -273,6 +274,8 @@ libtokamap::TypedDataArray libtokamap::MappingHandler::map(const ExperimentName&
                                                            std::type_index data_type, int rank,
                                                            const nlohmann::json& extra_attributes)
 {
+    LIBTOKAMAP_PROFILER(profiler);
+
     std::deque<std::string_view> path_tokens;
     libtokamap::split(path_tokens, path, "/");
     if (path_tokens.empty()) {
@@ -317,6 +320,7 @@ libtokamap::TypedDataArray libtokamap::MappingHandler::map(const ExperimentName&
     }
 
     if (m_mapping_cache.contains(map_path)) {
+        LIBTOKAMAP_PROFILER_ATTR(profiler, "cache_hit", true);
         return m_mapping_cache.at(map_path).clone();
     }
 
@@ -330,6 +334,7 @@ libtokamap::TypedDataArray libtokamap::MappingHandler::map(const ExperimentName&
     const libtokamap::MapArguments map_arguments{mappings,        attributes,      data_type,        rank,
                                                  m_trace_enabled, m_cache_enabled, m_ram_cache.get()};
 
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "cache_hit", false);
     auto result = mappings.at(map_path)->map(map_arguments);
     if (m_cache_enabled && m_mapping_counts.get(map_path) >= MappingCacheThreshold) {
         m_mapping_cache[map_path] = result.clone();

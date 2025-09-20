@@ -2,6 +2,7 @@
 
 #include "map_types/map_arguments.hpp"
 #include "utils/typed_data_array.hpp"
+#include "utils/profiler.hpp"
 
 // template int ExprMapping::eval_expr<float>(const MapArguments& arguments) const;
 template libtokamap::TypedDataArray libtokamap::ExprMapping::eval_expr<double>(const MapArguments& arguments) const;
@@ -18,6 +19,8 @@ template libtokamap::TypedDataArray libtokamap::ExprMapping::eval_expr<double>(c
  */
 libtokamap::TypedDataArray libtokamap::ExprMapping::map(const MapArguments& arguments) const
 {
+    LIBTOKAMAP_PROFILER(profiler);
+
     // Float only currently for testing purposes
     return eval_expr<double>(arguments);
 };

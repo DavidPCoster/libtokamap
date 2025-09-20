@@ -10,6 +10,8 @@
 #include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
 #include "utils/library_loader.hpp"
+#include "utils/profiler.hpp"
+#include "utils/typed_data_array.hpp"
 
 libtokamap::CustomMapping::CustomMapping(const std::vector<libtokamap::LibraryFunction>& functions,
                                          const libtokamap::LibraryName& library_name,
@@ -26,6 +28,8 @@ libtokamap::CustomMapping::CustomMapping(const std::vector<libtokamap::LibraryFu
 
 libtokamap::TypedDataArray libtokamap::CustomMapping::map(const MapArguments& arguments) const
 {
+    LIBTOKAMAP_PROFILER(profiler);
+
     CustomMappingInputs inputs;
     for (const auto& [name, mapping] : m_input_map) {
         if (!arguments.entries.contains(mapping)) {

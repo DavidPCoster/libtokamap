@@ -68,6 +68,8 @@ nlohmann::json map_all(libtokamap::MappingHandler& mapping_handler, const std::s
 
 int main()
 {
+    libtokamap::Profiler::init();
+
     try {
         libtokamap::MappingHandler mapping_handler;
 
@@ -88,7 +90,8 @@ int main()
         nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},
                                  {"schemas_directory", schema_root.string()},
                                  {"custom_function_libraries", custom_function_libraries},
-                                 {"trace_enabled", true}};
+                                 {"trace_enabled", true},
+                                 {"cache_enabled", true}};
         mapping_handler.init(config);
 
         const char* mapping = "EXAMPLE";
@@ -99,6 +102,8 @@ int main()
         std::cerr << "error: " << ex.what() << "\n";
         return 1;
     }
+
+    libtokamap::Profiler::write("profile.json");
 
     return 0;
 }

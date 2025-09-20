@@ -11,6 +11,7 @@
 #include <utils/algorithm.hpp>               // IWYU pragma: export.
 #include <utils/indices.hpp>                 // IWYU pragma: export.
 #include <utils/library_loader.hpp>          // IWYU pragma: export.
+#include <utils/profiler.hpp>                // IWYU pragma: export.
 #include <utils/ram_cache.hpp>               // IWYU pragma: export.
 #include <utils/render.hpp>                  // IWYU pragma: export.
 #include <utils/scale_offset.hpp>            // IWYU pragma: export.

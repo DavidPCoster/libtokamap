@@ -9,3 +9,5 @@ venv
 .idea
 logs/
 install/
+trace.json
+profile.json

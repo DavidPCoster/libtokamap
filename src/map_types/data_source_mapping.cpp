@@ -14,6 +14,7 @@
 #include "utils/render.hpp"
 #include "utils/subset.hpp"
 #include "utils/typed_data_array.hpp"
+#include "utils/profiler.hpp"
 
 std::unordered_map<libtokamap::DataSourceCacheKey, int> libtokamap::DataSourceMapping::m_data_source_count = {};
 std::unordered_map<libtokamap::DataSourceCacheKey, libtokamap::TypedDataArray>
@@ -21,6 +22,8 @@ std::unordered_map<libtokamap::DataSourceCacheKey, libtokamap::TypedDataArray>
 
 libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments& arguments) const
 {
+    LIBTOKAMAP_PROFILER(profiler);
+
     TypedDataArray array;
 
     DataSourceArgs args = m_data_source_args;
@@ -36,8 +39,10 @@ libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments
     if (arguments.cache_enabled && m_data_source_cache.contains(cache_key)) {
         array = m_data_source_cache.at(cache_key).clone();
         cache_hit = true;
+        LIBTOKAMAP_PROFILER_ATTR(profiler, "cache_hit", true);
     } else {
         array = m_data_source->get(args, arguments, arguments.ram_cache);
+        LIBTOKAMAP_PROFILER_ATTR(profiler, "cache_hit", false);
     }
 
     // Render the slice string at runtime if it exists

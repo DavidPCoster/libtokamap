@@ -15,9 +15,12 @@ list(
 )
 
 # Set project options
-include( StandardSettings )
 include( StaticAnalyzers )
 include( Utils )
+
+option( ENABLE_TESTING "Enable unit tests for the projects (from the `test` subfolder)." OFF )
+option( ENABLE_EXAMPLES "Enable examples for the projects (from the `examples` subfolder)." OFF )
+option( ENABLE_PROFILING "Compile with profiling enabled." OFF )
 
 add_clang_format_target()
 
@@ -35,6 +38,7 @@ set( UTIL_SOURCES
     src/utils/indices.cpp
     src/utils/library_loader.cpp
     src/utils/mapping_locator.cpp
+    src/utils/profiler.cpp
     src/utils/ram_cache.cpp
     src/utils/render.cpp
     src/utils/scale_offset.cpp
@@ -135,6 +139,9 @@ target_compile_options( libtokamap PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wall -Werror -Wpedantic>
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Werror -Wpedantic>
 )
+if( ENABLE_PROFILING )
+    target_compile_definitions( libtokamap PRIVATE LIBTOKAMAP_PROFILE_ENABLED )
+endif()
 target_sources( libtokamap PUBLIC
     FILE_SET HEADERS
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src

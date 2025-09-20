@@ -13,6 +13,7 @@
 
 #include "exceptions/exceptions.hpp"
 #include "map_types/map_arguments.hpp"
+#include "utils/profiler.hpp"
 #include "utils/render.hpp"
 #include "utils/typed_data_array.hpp"
 
@@ -163,6 +164,8 @@ libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val,
 
 libtokamap::TypedDataArray libtokamap::ValueMapping::map(const MapArguments& arguments) const
 {
+    LIBTOKAMAP_PROFILER(profiler);
+
     libtokamap::TypedDataArray result;
 
     const auto temp_val = m_value;
