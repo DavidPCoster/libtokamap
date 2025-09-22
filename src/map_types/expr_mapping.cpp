@@ -20,6 +20,7 @@ template libtokamap::TypedDataArray libtokamap::ExprMapping::eval_expr<double>(c
 libtokamap::TypedDataArray libtokamap::ExprMapping::map(const MapArguments& arguments) const
 {
     LIBTOKAMAP_PROFILER(profiler);
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "expr", m_expr);
 
     // Float only currently for testing purposes
     return eval_expr<double>(arguments);

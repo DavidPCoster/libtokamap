@@ -8,6 +8,7 @@
 #include "map_types/base_mapping.hpp"
 #include "map_types/map_arguments.hpp"
 #include "utils/library_loader.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace libtokamap
 {
@@ -31,6 +32,7 @@ class CustomMapping : public Mapping
     [[nodiscard]] TypedDataArray map(const MapArguments& arguments) const override;
 
   private:
+    std::string m_library_name;
     std::string m_function_name;
     const LibraryFunction* m_function;
     CustomMappingInputMap m_input_map;

@@ -28,7 +28,7 @@ class Profiler
     Profiler(Profiler&&) = delete;
     Profiler& operator=(Profiler&&) = delete;
 
-    std::string& operator[](const std::string& name) { return m_attributes[name]; }
+    nlohmann::json& operator[](const std::string& name) { return m_attributes[name]; }
 
     static void init() {}
     static void write(const std::string& filename)
@@ -54,21 +54,21 @@ class Profiler
     struct Sample {
         std::chrono::time_point<std::chrono::steady_clock> start_time;
         std::chrono::time_point<std::chrono::steady_clock> end_time;
-        std::unordered_map<std::string, std::string> attributes;
+        std::unordered_map<std::string, nlohmann::json> attributes;
     };
 
     static std::unordered_map<std::string, std::vector<Sample>> m_timings;
 
     std::string m_function_name;
     std::chrono::time_point<std::chrono::steady_clock> m_start_time;
-    std::unordered_map<std::string, std::string> m_attributes;
+    std::unordered_map<std::string, nlohmann::json> m_attributes;
 };
 
 } // namespace libtokamap
 
 #ifdef LIBTOKAMAP_PROFILE_ENABLED
 #  define LIBTOKAMAP_PROFILER(NAME) libtokamap::Profiler NAME{__PRETTY_FUNCTION__};
-#  define LIBTOKAMAP_PROFILER_ATTR(NAME, ATTR, VALUE) NAME[ATTR] = std::to_string(VALUE);
+#  define LIBTOKAMAP_PROFILER_ATTR(NAME, ATTR, VALUE) NAME[ATTR] = VALUE;
 #else
 #  define LIBTOKAMAP_PROFILER(NAME)
 #  define LIBTOKAMAP_PROFILER_ATTR(NAME, ATTR, VALUE)

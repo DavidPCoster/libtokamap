@@ -17,7 +17,8 @@ libtokamap::CustomMapping::CustomMapping(const std::vector<libtokamap::LibraryFu
                                          const libtokamap::LibraryName& library_name,
                                          const libtokamap::FunctionName& function_name, CustomMappingInputMap input_map,
                                          CustomMappingParams params)
-    : m_function_name{function_name}, m_input_map(std::move(input_map)), m_params(std::move(params))
+    : m_library_name{library_name}, m_function_name{function_name}, m_input_map(std::move(input_map)),
+      m_params(std::move(params))
 {
     auto found = std::ranges::find_if(functions, [&](auto& func) { return func.matches(library_name, function_name); });
     if (found == functions.end()) {
@@ -38,6 +39,10 @@ libtokamap::TypedDataArray libtokamap::CustomMapping::map(const MapArguments& ar
         const auto& input = arguments.entries.at(mapping);
         inputs.insert({name, input->map(arguments)});
     }
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "inputs", m_input_map);
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "library", m_library_name);
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "function", m_function_name);
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "params", m_params);
 
     auto result = m_function->call(inputs, m_params);
     if (arguments.trace_enabled) {

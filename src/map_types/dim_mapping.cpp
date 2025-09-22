@@ -16,6 +16,7 @@ libtokamap::TypedDataArray libtokamap::DimMapping::map(const MapArguments& argum
     if (!arguments.entries.contains(m_dim_probe)) {
         throw libtokamap::MappingError{"invalid DIM_PROBE '" + m_dim_probe + "'"};
     }
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "dim_probe", m_dim_probe);
 
     // TODO: Add DIM_INDEX for selecting which dimension to return size of
     constexpr int dim_index = 0;

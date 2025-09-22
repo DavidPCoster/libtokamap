@@ -32,6 +32,7 @@ libtokamap::TypedDataArray libtokamap::DataSourceMapping::map(const MapArguments
             value = libtokamap::render(value.get<std::string>(), arguments.global_data);
         }
     }
+    LIBTOKAMAP_PROFILER_ATTR(profiler, "args", args);
 
     DataSourceCacheKey cache_key = {m_name, args};
     bool cache_hit = false;

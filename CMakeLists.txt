@@ -7,6 +7,10 @@ project(
     LANGUAGES CXX
 )
 
+if( "${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}" )
+    message( SEND_ERROR "In-source builds are not allowed." )
+endif()
+
 # Extra cmake modules to find libraries
 list(
     APPEND CMAKE_MODULE_PATH
@@ -32,6 +36,9 @@ endif()
 set( CMAKE_CXX_STANDARD 20 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 set( CMAKE_CXX_EXTENSIONS OFF )
+
+# Export compile commands for tools like clang-tidy
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
 
 # Group source files by functionality for better organization
 set( UTIL_SOURCES
