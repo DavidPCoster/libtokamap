@@ -73,13 +73,16 @@ set( SOURCES
 
 set( UTIL_HEADERS
     src/utils/algorithm.hpp
+    src/utils/compiler.hpp
     src/utils/indices.hpp
     src/utils/library_loader.hpp
     src/utils/mapping_locator.hpp
+    src/utils/profiler.hpp
     src/utils/ram_cache.hpp
     src/utils/render.hpp
     src/utils/subset.hpp
     src/utils/syntax_parser.hpp
+    src/utils/typed_data_array.hpp
     src/utils/types.hpp
 )
 
@@ -210,7 +213,4 @@ endif()
 list( TRANSFORM SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 list( TRANSFORM HEADERS PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 
-set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
-set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
-set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
 set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
