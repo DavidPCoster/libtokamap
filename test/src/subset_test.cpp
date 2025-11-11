@@ -147,6 +147,124 @@ TEST_CASE("Subset 2D to 1D array", "[subset]")
         };
         REQUIRE(result == expected);
     }
+
+    SECTION("Select every other row in order and also index [0:9:2][5]")
+    {
+        TypedDataArray array{data, {rows, cols}};
+        auto subsets = parse_slices("[0:9:2][5]", array.shape());
+
+        array.slice<float>(subsets);
+
+        // Result: 1D array with 5 elements (rows 0, 2, 4, 6, 8, column 5)
+        REQUIRE(array.rank() == 1);
+        REQUIRE(array.size() == 5);
+        REQUIRE(array.shape() == std::vector<size_t>{5});
+
+        auto result = array.to_vector<float>();
+        std::vector<float> expected = {5.0, 205.0, 405.0, 605.0, 805.0};
+        REQUIRE(result == expected);
+    }
+
+    SECTION("Select column range with negative stride [:][12:2:-2]")
+    {
+        TypedDataArray array{data, {rows, cols}};
+        auto subsets = parse_slices("[:][12:2:-2]", array.shape());
+
+        array.slice<float>(subsets);
+
+        // Result: 10 rows x 5 columns (indices 12, 10, 8, 6, 4)
+        REQUIRE(array.rank() == 2);
+        REQUIRE(array.size() == rows * 5);
+        REQUIRE(array.shape() == std::vector<size_t>{rows, 5});
+
+        auto result = array.to_vector<float>();
+        std::vector<float> expected = {
+            12.0, 10.0, 8.0, 6.0, 4.0,
+            112.0, 110.0, 108.0, 106.0, 104.0,
+            212.0, 210.0, 208.0, 206.0, 204.0,
+            312.0, 310.0, 308.0, 306.0, 304.0,
+            412.0, 410.0, 408.0, 406.0, 404.0,
+            512.0, 510.0, 508.0, 506.0, 504.0,
+            612.0, 610.0, 608.0, 606.0, 604.0,
+            712.0, 710.0, 708.0, 706.0, 704.0,
+            812.0, 810.0, 808.0, 806.0, 804.0,
+            912.0, 910.0, 908.0, 906.0, 904.0
+        };
+        REQUIRE(result == expected);
+    }
+
+     SECTION("Select column range with -1 stride [:][14:0:-1]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[:][14:0:-1]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // Result: 10 rows x 14 columns (indices 14 down to 1)
+         REQUIRE(array.rank() == 2);
+         REQUIRE(array.size() == rows * 14);
+         REQUIRE(array.shape() == std::vector<size_t>{rows, 14});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {
+             14.0, 13.0, 12.0, 11.0, 10.0, 9.0, 8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0,
+             114.0, 113.0, 112.0, 111.0, 110.0, 109.0, 108.0, 107.0, 106.0, 105.0, 104.0, 103.0, 102.0, 101.0,
+             214.0, 213.0, 212.0, 211.0, 210.0, 209.0, 208.0, 207.0, 206.0, 205.0, 204.0, 203.0, 202.0, 201.0,
+             314.0, 313.0, 312.0, 311.0, 310.0, 309.0, 308.0, 307.0, 306.0, 305.0, 304.0, 303.0, 302.0, 301.0,
+             414.0, 413.0, 412.0, 411.0, 410.0, 409.0, 408.0, 407.0, 406.0, 405.0, 404.0, 403.0, 402.0, 401.0,
+             514.0, 513.0, 512.0, 511.0, 510.0, 509.0, 508.0, 507.0, 506.0, 505.0, 504.0, 503.0, 502.0, 501.0,
+             614.0, 613.0, 612.0, 611.0, 610.0, 609.0, 608.0, 607.0, 606.0, 605.0, 604.0, 603.0, 602.0, 601.0,
+             714.0, 713.0, 712.0, 711.0, 710.0, 709.0, 708.0, 707.0, 706.0, 705.0, 704.0, 703.0, 702.0, 701.0,
+             814.0, 813.0, 812.0, 811.0, 810.0, 809.0, 808.0, 807.0, 806.0, 805.0, 804.0, 803.0, 802.0, 801.0,
+             914.0, 913.0, 912.0, 911.0, 910.0, 909.0, 908.0, 907.0, 906.0, 905.0, 904.0, 903.0, 902.0, 901.0
+         };
+         REQUIRE(result == expected);
+     }
+
+     SECTION("Select row range with -1 stride [9:0:-1][:]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[9:0:-1][:]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // Result: 9 rows x 15 columns (rows 9 down to 1)
+         REQUIRE(array.rank() == 2);
+         REQUIRE(array.size() == 9 * cols);
+         REQUIRE(array.shape() == std::vector<size_t>{9, cols});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {
+             900.0, 901.0, 902.0, 903.0, 904.0, 905.0, 906.0, 907.0, 908.0, 909.0, 910.0, 911.0, 912.0, 913.0, 914.0,
+             800.0, 801.0, 802.0, 803.0, 804.0, 805.0, 806.0, 807.0, 808.0, 809.0, 810.0, 811.0, 812.0, 813.0, 814.0,
+             700.0, 701.0, 702.0, 703.0, 704.0, 705.0, 706.0, 707.0, 708.0, 709.0, 710.0, 711.0, 712.0, 713.0, 714.0,
+             600.0, 601.0, 602.0, 603.0, 604.0, 605.0, 606.0, 607.0, 608.0, 609.0, 610.0, 611.0, 612.0, 613.0, 614.0,
+             500.0, 501.0, 502.0, 503.0, 504.0, 505.0, 506.0, 507.0, 508.0, 509.0, 510.0, 511.0, 512.0, 513.0, 514.0,
+             400.0, 401.0, 402.0, 403.0, 404.0, 405.0, 406.0, 407.0, 408.0, 409.0, 410.0, 411.0, 412.0, 413.0, 414.0,
+             300.0, 301.0, 302.0, 303.0, 304.0, 305.0, 306.0, 307.0, 308.0, 309.0, 310.0, 311.0, 312.0, 313.0, 314.0,
+             200.0, 201.0, 202.0, 203.0, 204.0, 205.0, 206.0, 207.0, 208.0, 209.0, 210.0, 211.0, 212.0, 213.0, 214.0,
+             100.0, 101.0, 102.0, 103.0, 104.0, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0, 111.0, 112.0, 113.0, 114.0
+         };
+         REQUIRE(result == expected);
+     }
+
+
+     SECTION("Select every other row in reverse and also index [9:0:-2][5]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[9:0:-2][5]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // Result: 1D array with 5 elements (rows 9, 7, 5, 3, 1, column 5)
+         REQUIRE(array.rank() == 1);
+         REQUIRE(array.size() == 5);
+         REQUIRE(array.shape() == std::vector<size_t>{5});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {905.0, 705.0, 505.0, 305.0, 105.0};
+         REQUIRE(result == expected);
+     }
 }
 
 TEST_CASE("Subset 3D to 2D array", "[subset]")
@@ -431,6 +549,114 @@ TEST_CASE("Subset 3D to 2D array", "[subset]")
             40301, 40303, 40305,
             40401, 40403, 40405,
             40501, 40503, 40505
+        };
+        REQUIRE(result == expected);
+    }
+
+    SECTION("Select with -1 stride in third dimension [:][:][7:0:-1]")
+    {
+        TypedDataArray array{data, {dim1, dim2, dim3}};
+        auto subsets = parse_slices("[:][:][7:0:-1]", array.shape());
+
+        array.slice<int>(subsets);
+
+        REQUIRE(array.rank() == 3);
+        REQUIRE(array.size() == dim1 * dim2 * 7);
+        REQUIRE(array.shape() == std::vector<size_t>{dim1, dim2, 7});
+
+        auto result = array.to_vector<int>();
+        std::vector<int> expected = {
+            7, 6, 5, 4, 3, 2, 1,
+            107, 106, 105, 104, 103, 102, 101,
+            207, 206, 205, 204, 203, 202, 201,
+            307, 306, 305, 304, 303, 302, 301,
+            407, 406, 405, 404, 403, 402, 401,
+            507, 506, 505, 504, 503, 502, 501,
+
+            10007, 10006, 10005, 10004, 10003, 10002, 10001,
+            10107, 10106, 10105, 10104, 10103, 10102, 10101,
+            10207, 10206, 10205, 10204, 10203, 10202, 10201,
+            10307, 10306, 10305, 10304, 10303, 10302, 10301,
+            10407, 10406, 10405, 10404, 10403, 10402, 10401,
+            10507, 10506, 10505, 10504, 10503, 10502, 10501,
+
+            20007, 20006, 20005, 20004, 20003, 20002, 20001,
+            20107, 20106, 20105, 20104, 20103, 20102, 20101,
+            20207, 20206, 20205, 20204, 20203, 20202, 20201,
+            20307, 20306, 20305, 20304, 20303, 20302, 20301,
+            20407, 20406, 20405, 20404, 20403, 20402, 20401,
+            20507, 20506, 20505, 20504, 20503, 20502, 20501,
+
+            30007, 30006, 30005, 30004, 30003, 30002, 30001,
+            30107, 30106, 30105, 30104, 30103, 30102, 30101,
+            30207, 30206, 30205, 30204, 30203, 30202, 30201,
+            30307, 30306, 30305, 30304, 30303, 30302, 30301,
+            30407, 30406, 30405, 30404, 30403, 30402, 30401,
+            30507, 30506, 30505, 30504, 30503, 30502, 30501,
+
+            40007, 40006, 40005, 40004, 40003, 40002, 40001,
+            40107, 40106, 40105, 40104, 40103, 40102, 40101,
+            40207, 40206, 40205, 40204, 40203, 40202, 40201,
+            40307, 40306, 40305, 40304, 40303, 40302, 40301,
+            40407, 40406, 40405, 40404, 40403, 40402, 40401,
+            40507, 40506, 40505, 40504, 40503, 40502, 40501
+        };
+        REQUIRE(result == expected);
+    }
+
+    SECTION("Select with negative stride in first dimension [4:0:-1][:][3]")
+    {
+        TypedDataArray array{data, {dim1, dim2, dim3}};
+        auto subsets = parse_slices("[4:0:-1][:][3]", array.shape());
+
+        array.slice<int>(subsets);
+
+        REQUIRE(array.rank() == 2);
+        REQUIRE(array.size() == 4 * dim2);
+        REQUIRE(array.shape() == std::vector<size_t>{4, dim2});
+
+        auto result = array.to_vector<int>();
+        std::vector<int> expected = {
+            40003, 40103, 40203, 40303, 40403, 40503,
+            30003, 30103, 30203, 30303, 30403, 30503,
+            20003, 20103, 20203, 20303, 20403, 20503,
+            10003, 10103, 10203, 10303, 10403, 10503
+        };
+        REQUIRE(result == expected);
+    }
+
+    SECTION("Select with negative stride in second dimension [:][5:0:-2][:]")
+    {
+        TypedDataArray array{data, {dim1, dim2, dim3}};
+        auto subsets = parse_slices("[:][5:0:-2][:]", array.shape());
+
+        array.slice<int>(subsets);
+
+        REQUIRE(array.rank() == 3);
+        REQUIRE(array.size() == dim1 * 3 * dim3);
+        REQUIRE(array.shape() == std::vector<size_t>{dim1, 3, dim3});
+
+        auto result = array.to_vector<int>();
+        std::vector<int> expected = {
+            500, 501, 502, 503, 504, 505, 506, 507,
+            300, 301, 302, 303, 304, 305, 306, 307,
+            100, 101, 102, 103, 104, 105, 106, 107,
+
+            10500, 10501, 10502, 10503, 10504, 10505, 10506, 10507,
+            10300, 10301, 10302, 10303, 10304, 10305, 10306, 10307,
+            10100, 10101, 10102, 10103, 10104, 10105, 10106, 10107,
+
+            20500, 20501, 20502, 20503, 20504, 20505, 20506, 20507,
+            20300, 20301, 20302, 20303, 20304, 20305, 20306, 20307,
+            20100, 20101, 20102, 20103, 20104, 20105, 20106, 20107,
+
+            30500, 30501, 30502, 30503, 30504, 30505, 30506, 30507,
+            30300, 30301, 30302, 30303, 30304, 30305, 30306, 30307,
+            30100, 30101, 30102, 30103, 30104, 30105, 30106, 30107,
+
+            40500, 40501, 40502, 40503, 40504, 40505, 40506, 40507,
+            40300, 40301, 40302, 40303, 40304, 40305, 40306, 40307,
+            40100, 40101, 40102, 40103, 40104, 40105, 40106, 40107
         };
         REQUIRE(result == expected);
     }
