@@ -148,8 +148,8 @@ class SubsetInfo
 
     [[nodiscard]] bool validate() const
     {
-        // return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_start <= m_stop && m_stride < m_dim_size;
-        return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_stride < m_dim_size;
+        bool valid_stride = m_stride >= 0 ? m_start <= m_stop : m_stop <= m_start;
+        return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_stride < m_dim_size && valid_stride;
     }
 
     [[nodiscard]] uint64_t start() const { return m_start; }
