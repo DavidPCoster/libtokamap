@@ -38,7 +38,16 @@ IndicesList generate_indices(const std::vector<libtokamap::SubsetInfo>& subsets)
         for (int64_t i = static_cast<int64_t>(n_dims) - 1; i >= 0; --i) {
             current[i] += subsets[i].stride();
 
-            if (current[i] < subsets[i].stop()) {
+            // Check if we're still within bounds (handles both positive and negative strides)
+            bool within_bounds = false;
+            if (subsets[i].stride() > 0) {
+                within_bounds = (current[i] < subsets[i].stop());
+            } else {
+                // stops unsigned integer wraparound --> infinite loop
+                within_bounds = (current[i] <= subsets[i].dim_size() && current[i] > subsets[i].stop());
+            }
+
+            if (within_bounds) {
                 break; // no carry needed
             }
             if (i == 0) {
