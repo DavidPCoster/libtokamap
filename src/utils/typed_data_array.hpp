@@ -132,11 +132,24 @@ class SubsetInfo
 
     [[nodiscard]] bool empty() const { return m_start == m_stop; }
 
-    [[nodiscard]] uint64_t size() const { return (m_stop - m_start) / m_stride; }
+    [[nodiscard]] uint64_t size() const {
+        uint64_t size = 0;
+        if (m_stride > 0) {
+            if (m_start < m_stop) {
+                size = (m_stop - m_start + m_stride - 1) / m_stride;
+            }
+        } else if (m_stride < 0) {
+            if (m_start > m_stop) {
+                size = (m_start - m_stop - m_stride - 1) / (-m_stride);
+            }
+        }
+        return size;
+    }
 
     [[nodiscard]] bool validate() const
     {
-        return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_start <= m_stop && m_stride < m_dim_size;
+        // return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_start <= m_stop && m_stride < m_dim_size;
+        return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_stride < m_dim_size;
     }
 
     [[nodiscard]] uint64_t start() const { return m_start; }
