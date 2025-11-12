@@ -814,3 +814,64 @@ TEST_CASE("Subset with update_array function", "[subset]")
         REQUIRE(result == expected);
     }
 }
+
+TEST_CASE("Subset validation", "[subset]")
+{
+    constexpr size_t rows = 10;
+    constexpr size_t cols = 15;
+
+    std::vector<float> data(rows * cols, 0.0);
+
+    SECTION("Positive stride with start > stop - FAIL")
+    {
+        TypedDataArray array{data, {rows, cols}};
+
+        // [7:3:1] - start > stop with positive stride should fail
+        REQUIRE_THROWS(parse_slices("[7:3:1][:]", array.shape()));
+    }
+
+    SECTION("Positive stride with start > stop (implicit default stride) - FAIL")
+    {
+        TypedDataArray array{data, {rows, cols}};
+
+        // [8:2] - start > stop with implicit positive stride should fail
+        REQUIRE_THROWS(parse_slices("[8:2][:]", array.shape()));
+    }
+
+    SECTION("Positive stride with start > stop (stride > 1) - FAIL")
+    {
+        TypedDataArray array{data, {rows, cols}};
+
+        // [:][12:5:2] - start > stop with stride=2 should fail
+        REQUIRE_THROWS(parse_slices("[:][12:5:2]", array.shape()));
+    }
+
+    SECTION("Negative stride with stop > start - FAIL")
+    {
+        TypedDataArray array{data, {rows, cols}};
+
+        // [3:7:-1] - stop > start with negative stride should fail
+        REQUIRE_THROWS(parse_slices("[3:7:-1][:]", array.shape()));
+    }
+
+    SECTION("Negative stride with stop > start (stride < -1)")
+    {
+        TypedDataArray array{data, {rows, cols}};
+
+        // [:][2:10:-2] - stop > start with stride=-2 should fail
+        REQUIRE_THROWS(parse_slices("[:][2:10:-2]", array.shape()));
+    }
+
+    SECTION("Negative stride with stop > start (3D) - FAIL")
+    {
+        constexpr size_t dim1 = 5;
+        constexpr size_t dim2 = 6;
+        constexpr size_t dim3 = 8;
+
+        std::vector<float> data_3d(dim1 * dim2 * dim3, 0.0);
+        TypedDataArray array{data_3d, {dim1, dim2, dim3}};
+
+        // [:][:][1:5:-1] - stop > start with negative stride should fail
+        REQUIRE_THROWS(parse_slices("[:][:][1:5:-1]", array.shape()));
+    }
+}
