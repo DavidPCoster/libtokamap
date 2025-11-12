@@ -38,22 +38,26 @@ IndicesList generate_indices(const std::vector<libtokamap::SubsetInfo>& subsets)
         for (int64_t i = static_cast<int64_t>(n_dims) - 1; i >= 0; --i) {
             current[i] += subsets[i].stride();
 
-            // Check if we're still within bounds (handles both positive and negative strides)
             bool within_bounds = false;
             if (subsets[i].stride() > 0) {
                 within_bounds = (current[i] < subsets[i].stop());
             } else {
-                // stops unsigned integer wraparound --> infinite loop
-                within_bounds = (current[i] <= subsets[i].dim_size() && current[i] > subsets[i].stop());
+                // For negative stride, stop can be UINT64_MAX - handle separately!
+                if (subsets[i].stop() == std::numeric_limits<uint64_t>::max()) {
+                    // Go down to 0 inclusive
+                    within_bounds = (current[i] < subsets[i].dim_size());
+                } else {
+                    within_bounds = (current[i] <= subsets[i].dim_size() && current[i] > subsets[i].stop());
+                }
             }
 
             if (within_bounds) {
-                break; // no carry needed
+                break;
             }
             if (i == 0) {
-                done = true; // we're finished
+                done = true;
             } else {
-                current[i] = subsets[i].start(); // reset and carry to next dimension
+                current[i] = subsets[i].start();
             }
         }
     }

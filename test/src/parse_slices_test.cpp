@@ -52,7 +52,7 @@ TEST_CASE("Parsing of slice strings", "[slice]") {
 
         REQUIRE(slices.size() == 1);
         REQUIRE(slices[0].start() == 3);
-        REQUIRE(slices[0].stop() == 9);
+        REQUIRE(slices[0].stop() == 8);
         REQUIRE(slices[0].stride() == 1);
     }
 

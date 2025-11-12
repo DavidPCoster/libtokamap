@@ -265,6 +265,77 @@ TEST_CASE("Subset 2D to 1D array", "[subset]")
          std::vector<float> expected = {905.0, 705.0, 505.0, 305.0, 105.0};
          REQUIRE(result == expected);
      }
+
+     SECTION("Negative index for row [-1][:]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[-1][:]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // Result: 1D array with last row (row 9)
+         REQUIRE(array.rank() == 1);
+         REQUIRE(array.size() == cols);
+         REQUIRE(array.shape() == std::vector<size_t>{cols});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {900.0, 901.0, 902.0, 903.0, 904.0, 905.0, 906.0, 907.0, 908.0, 909.0, 910.0, 911.0, 912.0, 913.0, 914.0};
+         REQUIRE(result == expected);
+     }
+
+     SECTION("Negative index for column [:][-1]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[:][-1]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // Result: 1D array with last column (column 14)
+         REQUIRE(array.rank() == 1);
+         REQUIRE(array.size() == rows);
+         REQUIRE(array.shape() == std::vector<size_t>{rows});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {14.0, 114.0, 214.0, 314.0, 414.0, 514.0, 614.0, 714.0, 814.0, 914.0};
+         REQUIRE(result == expected);
+     }
+
+     SECTION("Negative indices in slice [-3:-1:1][:]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[-3:-1:1][:]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // -3 = row 7, -1 = row 9, stop is exclusive so rows 7, 8
+         REQUIRE(array.rank() == 2);
+         REQUIRE(array.size() == 2 * cols);
+         REQUIRE(array.shape() == std::vector<size_t>{2, cols});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {
+             700.0, 701.0, 702.0, 703.0, 704.0, 705.0, 706.0, 707.0, 708.0, 709.0, 710.0, 711.0, 712.0, 713.0, 714.0,
+             800.0, 801.0, 802.0, 803.0, 804.0, 805.0, 806.0, 807.0, 808.0, 809.0, 810.0, 811.0, 812.0, 813.0, 814.0
+         };
+         REQUIRE(result == expected);
+     }
+
+     SECTION("Full reverse with negative stride [::-1][5]")
+     {
+         TypedDataArray array{data, {rows, cols}};
+         auto subsets = parse_slices("[::-1][5]", array.shape());
+
+         array.slice<float>(subsets);
+
+         // Result: all rows in reverse order, column 5
+         REQUIRE(array.rank() == 1);
+         REQUIRE(array.size() == rows);
+         REQUIRE(array.shape() == std::vector<size_t>{rows});
+
+         auto result = array.to_vector<float>();
+         std::vector<float> expected = {905.0, 805.0, 705.0, 605.0, 505.0, 405.0, 305.0, 205.0, 105.0, 5.0};
+         REQUIRE(result == expected);
+     }
 }
 
 TEST_CASE("Subset 3D to 2D array", "[subset]")
@@ -873,5 +944,55 @@ TEST_CASE("Subset validation", "[subset]")
 
         // [:][:][1:5:-1] - stop > start with negative stride should fail
         REQUIRE_THROWS(parse_slices("[:][:][1:5:-1]", array.shape()));
+    }
+
+    SECTION("Direct SubsetInfo validation - boundary cases")
+    {
+        // Test m_start and m_stop boundary conditions
+        constexpr size_t dim_size = 10;
+
+        // Valid: m_start=0, m_stop=10 (full range, positive stride)
+        SubsetInfo valid1(0, 10, 1, dim_size);
+        REQUIRE(valid1.validate());
+
+        // Valid: m_start=9, m_stop=0 (negative stride)
+        SubsetInfo valid2(9, 0, -1, dim_size);
+        REQUIRE(valid2.validate());
+
+        // Valid: m_start=9, omitted stop (negative stride, goes to beginning)
+        SubsetInfo valid3(9, std::nullopt, -1, dim_size);
+        REQUIRE(valid3.validate());
+
+        // Invalid: m_start=10 (out of bounds, equals dim_size)
+        SubsetInfo invalid1(10, 10, 1, dim_size);
+        REQUIRE_FALSE(invalid1.validate());
+
+        // Valid: m_start=-1 with positive stride (normalizes to 9, but 9>5 so actually invalid)
+        SubsetInfo invalid2(-1, 5, 1, dim_size);
+        REQUIRE_FALSE(invalid2.validate()); // After normalization: start=9, stop=5, 9>5 with positive stride = invalid
+
+        // Invalid: m_stop=11 (out of bounds)
+        SubsetInfo invalid3(0, 11, 1, dim_size);
+        REQUIRE_FALSE(invalid3.validate());
+
+        // Invalid: m_start > m_stop with positive stride
+        SubsetInfo invalid4(7, 3, 1, dim_size);
+        REQUIRE_FALSE(invalid4.validate());
+
+        // Invalid: m_stop > m_start with negative stride
+        SubsetInfo invalid5(3, 7, -1, dim_size);
+        REQUIRE_FALSE(invalid5.validate());
+    }
+
+    SECTION("Test omitted stop for negative strides going to beginning")
+    {
+        constexpr size_t dim_size = 10;
+
+        // Test that omitted stop is correctly handled for negative strides (go to beginning)
+        SubsetInfo subset1(9, std::nullopt, -1, dim_size);
+        REQUIRE(subset1.validate());
+        REQUIRE(subset1.start() == 9);
+        REQUIRE(subset1.stop() == std::numeric_limits<uint64_t>::max());  // Omitted stop with negative stride uses UINT64_MAX sentinel
+        REQUIRE(subset1.size() == 10);  // Should include all elements from 9 down to 0
     }
 }

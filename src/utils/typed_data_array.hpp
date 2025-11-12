@@ -115,18 +115,36 @@ inline DataType type_index_map(std::type_index type_index)
 class SubsetInfo
 {
   public:
-    SubsetInfo(int64_t start, int64_t stop, int64_t stride, size_t size)
-        : m_start{start}, m_stop{stop}, m_stride{stride}, m_dim_size{static_cast<int64_t>(size)}
+    SubsetInfo(std::optional<int64_t> start, std::optional<int64_t> stop, int64_t stride, size_t size)
+        : m_stride{stride}, m_dim_size{size}
     {
-        if (size > std::numeric_limits<int64_t>::max()) {
-            throw libtokamap::ProcessingError{"dimension size too large"};
+        if (stride == 0) {
+            throw libtokamap::ProcessingError{"stride of 0 is not allowed, apologies"};
         }
-        // negative indexes mean that many elements from the end
-        if (start < 0) {
-            m_start = m_dim_size + start;
+
+        // m_start
+        if (!start.has_value()) {
+            // If start omitted, need to default to values based on stride
+            m_start = (stride > 0) ? 0 : m_dim_size - 1;
+        } else if (start.value() < 0) {
+            m_start = m_dim_size + start.value();
+        } else {
+            m_start = start.value();
         }
-        if (stop < 0) {
-            m_stop = m_dim_size + stop + 1;
+
+        // m_stop
+        if (!stop.has_value()) {
+            // If stop omitted, need to default to values based on stride
+            if (stride > 0) {
+                m_stop = m_dim_size;
+            } else {
+                // Dummy flag value to know when to go all the way to INCLUDE zeroth index
+                m_stop = std::numeric_limits<uint64_t>::max();
+            }
+        } else if (stop.value() < 0) {
+            m_stop = m_dim_size + stop.value();
+        } else {
+            m_stop = stop.value();
         }
     }
 
@@ -139,7 +157,10 @@ class SubsetInfo
                 size = (m_stop - m_start + m_stride - 1) / m_stride;
             }
         } else if (m_stride < 0) {
-            if (m_start > m_stop) {
+            if (m_stop == std::numeric_limits<uint64_t>::max()) {
+                // As above
+                size = (m_start + (-m_stride)) / (-m_stride);
+            } else if (m_start > m_stop) {
                 size = (m_start - m_stop - m_stride - 1) / (-m_stride);
             }
         }
@@ -148,8 +169,10 @@ class SubsetInfo
 
     [[nodiscard]] bool validate() const
     {
-        bool valid_stride = m_stride >= 0 ? m_start <= m_stop : m_stop <= m_start;
-        return m_start <= m_dim_size - 1 && m_stop <= m_dim_size && m_stride < m_dim_size && valid_stride;
+        bool valid_stride = m_stride > 0
+                            ? (m_start < m_dim_size && m_start <= m_stop && m_stop <= m_dim_size)
+                            : (m_stop == std::numeric_limits<uint64_t>::max() || (m_stop <= m_start && m_start < m_dim_size));
+        return valid_stride;
     }
 
     [[nodiscard]] uint64_t start() const { return m_start; }
@@ -161,10 +184,10 @@ class SubsetInfo
     [[nodiscard]] uint64_t dim_size() const { return m_dim_size; }
 
   private:
-    int64_t m_start;
-    int64_t m_stop;
+    uint64_t m_start;
+    uint64_t m_stop;
     int64_t m_stride = 1;
-    int64_t m_dim_size;
+    uint64_t m_dim_size;
 };
 
 std::vector<size_t> compute_offsets(const std::vector<size_t>& shape, const std::vector<SubsetInfo>& subsets);
