@@ -21,7 +21,7 @@ namespace
 
 std::unique_ptr<libtokamap::DataSource> json_data_source_factory(const libtokamap::DataSourceFactoryArgs& args)
 {
-    auto data_root = libtokamap::get_arg<std::filesystem::path>(args, "data_root");
+    auto data_root = libtokamap::get_arg<std::string>(args, "data_root");
     return std::make_unique<JSONDataSource>(data_root);
 }
 

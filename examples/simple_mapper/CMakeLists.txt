@@ -14,3 +14,5 @@ target_link_libraries( custom_library PRIVATE LibTokaMap::libtokamap )
 
 add_library( json_data_source SHARED data_source_library/json_data_source.cpp )
 target_link_libraries( json_data_source PRIVATE LibTokaMap::libtokamap )
+
+configure_file( config.toml.in config.toml @ONLY )

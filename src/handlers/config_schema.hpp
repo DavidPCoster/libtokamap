@@ -25,9 +25,32 @@ constexpr auto ConfigSchema = R"(
             "items": {
                 "type": "string"
             }
+        },
+        "data_source_factories": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": { "type": "string" }
+            }
+        },
+        "data_sources": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": { "$ref": "#/$defs/data_source" }
+            }
         }
     },
     "required": ["mapping_directory", "schemas_directory"],
-    "additionalProperties": false
+    "additionalProperties": false,
+    "$defs": {
+        "data_source": {
+            "type": "object",
+            "properties": {
+                "factory": { "type": "string" },
+                "args": { "type": "object" }
+            },
+            "required": ["factory"],
+            "additionalProperties": false
+        }
+    }
 }
 )";

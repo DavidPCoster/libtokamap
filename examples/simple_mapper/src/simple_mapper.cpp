@@ -76,26 +76,11 @@ int main()
         auto root = std::filesystem::path{__FILE__}.parent_path().parent_path();
         auto build_root = root.parent_path().parent_path() / "build" / "examples" / "simple_mapper";
 
-        auto data_source_library = build_root / (std::string{"libjson_data_source"} + libtokamap::LibrarySuffix);
-        mapping_handler.register_data_source_factory("JSON_factory", data_source_library);
+        std::filesystem::path config_path = build_root / "config.toml";
+        mapping_handler.init(config_path);
 
-        std::filesystem::path data_root = root / "data";
-        libtokamap::DataSourceFactoryArgs factory_args = {{"data_root", data_root}};
-        mapping_handler.register_data_source("JSON", "JSON_factory", factory_args);
-
-        std::string library_name = std::string{"libcustom_library"} + libtokamap::LibrarySuffix;
-        std::vector<std::string> custom_function_libraries = {build_root / library_name};
-
-        auto schema_root = root.parent_path().parent_path() / "schemas";
-        nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},
-                                 {"schemas_directory", schema_root.string()},
-                                 {"custom_function_libraries", custom_function_libraries},
-                                 {"trace_enabled", true},
-                                 {"cache_enabled", true}};
-        mapping_handler.init(config);
-
-        const char* mapping = "EXAMPLE";
-        auto trace = map_all(mapping_handler, mapping);
+        const char* experiment = "EXAMPLE";
+        auto trace = map_all(mapping_handler, experiment);
 
         std::ofstream("trace.json") << trace.dump(4);
     } catch (std::exception& ex) {

@@ -522,6 +522,32 @@ void libtokamap::MappingHandler::load_custom_function_library(const std::filesys
                                std::make_move_iterator(library_functions.end()));
 }
 
+void libtokamap::MappingHandler::load_data_source_factory(const std::string& name, const std::string& library)
+{
+    register_data_source_factory(name, library);
+}
+
+void libtokamap::MappingHandler::load_data_source(const std::string& name, const nlohmann::json& args)
+{
+    std::string factory_name = args.at("factory");
+    auto factory_args_json = args.at("args");
+    DataSourceFactoryArgs factory_args;
+    for (const auto& [key, value]: factory_args_json.items()) {
+        if (value.is_number_float()) {
+            factory_args[key] = value.get<double>();
+        } else if (value.is_number_integer()) {
+            factory_args[key] = value.get<int>();
+        } else if (value.is_boolean()) {
+            factory_args[key] = value.get<bool>();
+        } else if (value.is_string()) {
+            factory_args[key] = value.get<std::string>();
+        } else {
+            throw libtokamap::ConfigurationError{"Unsupported type for argument " + key};
+        }
+    }
+    register_data_source(name, factory_name, factory_args);
+}
+
 void libtokamap::MappingHandler::init(const std::filesystem::path& config_path)
 {
     nlohmann::json config;
@@ -572,6 +598,20 @@ void libtokamap::MappingHandler::init(const nlohmann::json& config)
             config.at("custom_function_libraries").get<std::vector<std::filesystem::path>>();
         for (const auto& custom_function_library : paths) {
             load_custom_function_library(custom_function_library);
+        }
+    }
+
+    if (config.contains("data_source_factories")) {
+        auto data_source_factories = config.at("data_source_factories");
+        for (const auto& [name, library] : data_source_factories.items()) {
+            load_data_source_factory(name, library);
+        }
+    }
+
+    if (config.contains("data_sources")) {
+        auto data_source_factories = config.at("data_sources");
+        for (const auto& [name, args] : data_source_factories.items()) {
+            load_data_source(name, args);
         }
     }
 }
