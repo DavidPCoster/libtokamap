@@ -17,6 +17,7 @@ set( TEST_SOURCES
     src/mapping_locator_test.cpp
     src/parse_slices_test.cpp
     src/render_test.cpp
+    src/subset_test.cpp
     src/syntax_parser_test.cpp
     src/typed_data_array_test.cpp
     src/value_mapping_test.cpp

@@ -52,7 +52,7 @@ TEST_CASE("Parsing of slice strings", "[slice]") {
 
         REQUIRE(slices.size() == 1);
         REQUIRE(slices[0].start() == 3);
-        REQUIRE(slices[0].stop() == 9);
+        REQUIRE(slices[0].stop() == 8);
         REQUIRE(slices[0].stride() == 1);
     }
 
@@ -78,11 +78,11 @@ TEST_CASE("Parsing of slice strings", "[slice]") {
 
     SECTION("select range with negative stride") {
         std::vector<size_t> shape = {dim_size};
-        auto slices = libtokamap::parse_slices("[3:7:-1]", shape);
+        auto slices = libtokamap::parse_slices("[7:3:-1]", shape);
 
         REQUIRE(slices.size() == 1);
-        REQUIRE(slices[0].start() == 3);
-        REQUIRE(slices[0].stop() == 7);
+        REQUIRE(slices[0].start() == 7);
+        REQUIRE(slices[0].stop() == 3);
         REQUIRE(slices[0].stride() == -1);
     }
 
