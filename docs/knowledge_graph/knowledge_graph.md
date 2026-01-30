@@ -77,21 +77,33 @@ classDiagram
 ```mermaid
 graph LR
     DSR[DataSourceRegistry] --> |contains| DS[DataSource implementations]
+    DSF[DataSourceFactory] --> |creates| DS
+    MH[MappingHandler] --> |manages| DSF
     DS --> |provides| TDA[TypedDataArray]
     DSM[DataSourceMapping] --> |uses| DS
     DSM --> |applies| SO[ScaleOffset]
     DSM --> |applies| SL[Slicing]
     DSM --> |uses| RC[RamCache]
     
-    subgraph "Built-in DataSources"
+    subgraph "Factory Pattern"
+        JSON_FACTORY[JSON Factory]
+        HDF5_FACTORY[HDF5 Factory]
+        CUSTOM_FACTORY[Custom Factories]
+    end
+    
+    subgraph "Data Source Implementations"
         JSON[JSONDataSource]
-        FILE[FileDataSource]
+        HDF5[HDF5DataSource]
         CUSTOM[CustomDataSources]
     end
     
-    DS --> JSON
-    DS --> FILE
-    DS --> CUSTOM
+    DSF --> JSON_FACTORY
+    DSF --> HDF5_FACTORY
+    DSF --> CUSTOM_FACTORY
+    
+    JSON_FACTORY --> JSON
+    HDF5_FACTORY --> HDF5
+    CUSTOM_FACTORY --> CUSTOM
 ```
 
 ## Data Structures and Types
@@ -112,6 +124,16 @@ graph LR
 | `ExperimentMappings` | Experiment configuration | Partition list, groups, mappings, globals |
 | `MappingPartition` | Directory selection logic | Attribute name, selector strategy |
 | `DirectorySelector` | Partition selection strategy | MaxBelow, MinAbove, Exact, Closest |
+| `DataSourceFactory` | Factory function type | Creates DataSource from args |
+| `DataSourceFactoryArgs` | Factory configuration | Parameters for data source creation |
+
+#### Enhanced Configuration Schema
+
+The configuration now supports:
+- **Data Source Factories**: Dynamic loading of data source implementations
+- **Factory Registration**: TOML-based factory configuration
+- **Modular Data Sources**: Plugin-based architecture with hot-loading
+- **Custom Function Libraries**: External library loading for custom mappings
 
 ### 3. JSON Schema Integration
 
@@ -119,10 +141,15 @@ graph LR
 Schemas:
   - mappings.schema.json: Validates mapping definitions
   - globals.schema.json: Validates global variable files
-  - mappings.cfg.schema.json: Validates experiment configuration
+  - mappings.cfg.schema.json: Validates experiment configuration (DEPRECATED)
+  - config.schema.json: Validates TOML configuration files
+
+Configuration Formats:
+  - TOML: Primary configuration format (preferred)
+  - JSON: Legacy support maintained
 
 Validation Flow:
-  JSON Input → Schema Validation → Object Creation → Runtime Usage
+  TOML/JSON Input → Schema Validation → Object Creation → Runtime Usage
 ```
 
 ## Data Flow and Processing Pipeline
@@ -223,11 +250,19 @@ mappings/
 
 ### 1. Subset Operations
 
-| Operation | Description | Example |
-|-----------|-------------|---------|
-| Basic slice | `[start:stop:stride]` | `[0:10:2]` |
-| Negative indexing | From end of array | `[-5:-1]` |
-| Multi-dimensional | Per-dimension slicing | `[[0:5], [::2]]` |
+| Operation | Description | Example | Notes |
+|-----------|-------------|---------|-------|
+| Basic slice | `[start:stop:stride]` | `[0:10:2]` | Standard Python-style slicing |
+| Negative indexing | From end of array | `[-5:-1]` | Supports negative indices |
+| Negative stride | Reverse iteration | `[10:0:-1]` | Backwards slicing with validation |
+| Multi-dimensional | Per-dimension slicing | `[:][9]` | Column/row selection |
+| Dimension reduction | Remove singleton dims | `[5:6]` becomes `[5]` | Automatic rank reduction |
+
+#### Enhanced Subset Validation
+- Comprehensive validation for negative strides
+- Proper handling of edge cases (wraparound prevention)
+- Multi-dimensional slicing with rank reduction
+- Extensive test coverage for 1D, 2D, and 3D operations
 
 ### 2. Template Rendering (Inja)
 
@@ -261,9 +296,18 @@ public:
                       RamCache* cache) override;
 };
 
-// Registration
+// Method 1: Direct registration
 mapping_handler.register_data_source("MY_SOURCE", 
     std::make_unique<CustomDataSource>());
+
+// Method 2: Factory-based registration
+extern "C" std::unique_ptr<DataSource> create_data_source(const DataSourceFactoryArgs& args) {
+    return std::make_unique<CustomDataSource>(args);
+}
+
+// Register factory and create data source
+mapping_handler.register_data_source_factory("MY_FACTORY", "/path/to/libcustom.so");
+mapping_handler.register_data_source("MY_SOURCE", "MY_FACTORY", factory_args);
 ```
 
 ### 2. Custom Mapping Functions
@@ -383,8 +427,22 @@ classDiagram
 |----------|----------|----------|
 | Unit Tests | Individual components | `TypedDataArray`, `SubsetInfo` |
 | Integration Tests | Component interaction | Mapping resolution flow |
-| Schema Tests | JSON validation | Schema compliance |
+| Schema Tests | Configuration validation | TOML/JSON schema compliance |
 | Performance Tests | Benchmarking | Large dataset processing |
+| Subset Tests | Advanced slicing operations | Multi-dimensional, negative strides |
+
+### Enhanced Testing Features
+
+#### Comprehensive Subset Testing
+- **Multi-dimensional Operations**: 2D→1D, 3D→2D transformations
+- **Negative Stride Support**: Reverse iteration with proper validation
+- **Edge Case Coverage**: Boundary conditions and error scenarios
+- **Performance Validation**: Large array slicing benchmarks
+
+#### Factory Pattern Testing
+- **Dynamic Loading**: Plugin loading and unloading scenarios
+- **Configuration Validation**: TOML parsing and schema compliance
+- **Error Handling**: Factory creation failure scenarios
 
 ### 2. Test Data Organization
 
@@ -393,7 +451,11 @@ test/
 ├── data/           # Test datasets
 ├── mappings/       # Test mapping configurations  
 ├── schemas/        # Schema validation tests
+├── config/         # TOML configuration test files
 └── src/            # Test implementations
+    ├── subset_test.cpp      # Comprehensive subset operations
+    ├── factory_test.cpp     # Data source factory tests
+    └── config_test.cpp      # TOML configuration tests
 ```
 
 ## Future Directions

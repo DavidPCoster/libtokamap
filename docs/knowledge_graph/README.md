@@ -96,35 +96,56 @@ LibTokaMap is a C++20 library for flexible data mapping and transformation with 
 
 ## Usage Examples
 
-### Basic Mapping
+### TOML Configuration (Preferred)
 ```cpp
 #include <libtokamap.hpp>
 
+// Modern TOML-based initialization
 libtokamap::MappingHandler handler;
-nlohmann::json config = {{"mapping_directory", "/path/to/mappings"}};
-handler.init(config);
+handler.init("/path/to/config.toml");
 
 auto result = handler.map("EXPERIMENT", "path/to/data", 
                          std::type_index{typeid(double)}, 1, {});
 ```
 
-### Custom Data Source
+### Factory-Based Data Sources
 ```cpp
-class MyDataSource : public libtokamap::DataSource {
-    libtokamap::TypedDataArray get(const libtokamap::DataSourceArgs& args,
-                                  const libtokamap::MapArguments& arguments,
-                                  libtokamap::RamCache* cache) override {
-        // Implementation
-        return libtokamap::TypedDataArray{data};
-    }
-};
+// TOML config.toml:
+// [data_source_factories]
+// json_factory = "/path/to/libjson_source.so"
+// 
+// [data_sources.JSON]  
+// factory = "json_factory"
+// args.data_root = "/path/to/data"
 
-handler.register_data_source("MY_SOURCE", std::make_unique<MyDataSource>());
+// Factory function in external library
+extern "C" std::unique_ptr<libtokamap::DataSource> create_json_source(
+    const libtokamap::DataSourceFactoryArgs& args) {
+    return std::make_unique<JSONDataSource>(args.at("data_root"));
+}
+```
+
+### Enhanced Subset Operations
+```cpp
+// Multi-dimensional slicing with negative strides
+auto result = handler.map("EXPERIMENT", "array[:][9]", type, 1, {}); // Column selection
+auto reversed = handler.map("EXPERIMENT", "array[10:0:-1]", type, 1, {}); // Reverse
+
+// Safe array operations
+libtokamap::TypedDataArray original{data};
+auto cloned = original.clone(); // New clone method
 ```
 
 ## Modernization Roadmap
 
 The library is evolving toward modern C++20+ practices:
+
+### Recently Completed ✅
+- **Factory Pattern**: Dynamic data source loading with plugin architecture
+- **TOML Configuration**: Modern configuration format with comprehensive validation
+- **Enhanced Subset Operations**: Multi-dimensional slicing with negative stride support
+- **Comprehensive Testing**: 998 new test cases for subset operations
+- **Plugin Foundation**: Hot-loadable data source libraries
 
 ### Immediate Improvements (High Priority)
 - **Type System**: Replace `std::type_index` with `DataType` enum
@@ -136,7 +157,7 @@ The library is evolving toward modern C++20+ practices:
 - **Error Handling**: Introduce `std::expected` alongside exceptions
 - **Async Support**: Coroutine-based data loading
 - **Performance**: SIMD optimizations and memory pools
-- **Plugin System**: Hot-reloadable plugins for development
+- **Enhanced Plugin System**: Hot-reloading for development workflows
 
 ### Long-Term Vision
 - **Functional Composition**: Pipeline-based mapping transformations

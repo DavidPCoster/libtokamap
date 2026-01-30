@@ -9,56 +9,105 @@ This document provides comprehensive API patterns and usage examples for LibToka
 ```cpp
 #include <libtokamap.hpp>
 
-// Method 1: Configuration from JSON object
+// Method 1: Configuration from TOML file (preferred)
+libtokamap::MappingHandler mapping_handler;
+mapping_handler.init("/path/to/config.toml");
+
+// Method 2: Configuration from JSON object (legacy)
 libtokamap::MappingHandler mapping_handler;
 nlohmann::json config = {
     {"mapping_directory", "/path/to/mappings"},
+    {"schemas_directory", "/path/to/schemas"},
     {"cache_enabled", true},
     {"cache_size", 100}
 };
 mapping_handler.init(config);
 
-// Method 2: Configuration from file
-libtokamap::MappingHandler mapping_handler;
-mapping_handler.init("/path/to/config.json");
+// Method 3: TOML configuration with factories
+// config.toml:
+/*
+mapping_directory = "/path/to/mappings"
+schemas_directory = "/path/to/schemas"
+cache_enabled = true
+custom_function_libraries = ["/path/to/libcustom.so"]
 
-// Method 3: Minimal initialization
+[data_source_factories]
+json_factory = "/path/to/libjson_source.so"
+hdf5_factory = "/path/to/libhdf5_source.so"
+
+[data_sources.JSON]
+factory = "json_factory"
+args.data_root = "/path/to/json/data"
+
+[data_sources.HDF5]
+factory = "hdf5_factory"
+args.file_path = "/path/to/data.h5"
+*/
+
 libtokamap::MappingHandler mapping_handler;
-nlohmann::json minimal_config = {
-    {"mapping_directory", "/path/to/mappings"}
-};
-mapping_handler.init(minimal_config);
+mapping_handler.init("/path/to/config.toml");
 ```
 
 ### 2. Data Source Registration Patterns
 
 ```cpp
-// Pattern 1: Built-in data source registration
+// Pattern 1: Factory-based registration (preferred)
+// Register factory from dynamic library
+mapping_handler.register_data_source_factory("json_factory", "/path/to/libjson_source.so");
+
+// Create data source using factory
+libtokamap::DataSourceFactoryArgs args = {{"data_root", "/path/to/data"}};
+mapping_handler.register_data_source("JSON", "json_factory", args);
+
+// Pattern 2: Direct factory registration
+extern "C" std::unique_ptr<libtokamap::DataSource> create_json_source(
+    const libtokamap::DataSourceFactoryArgs& args) {
+    std::string data_root = args.at("data_root").get<std::string>();
+    return std::make_unique<JSONDataSource>(data_root);
+}
+
+auto factory = libtokamap::DataSourceFactory{create_json_source};
+mapping_handler.register_data_source_factory("json_factory", factory);
+
+// Pattern 3: Legacy direct registration (still supported)
 auto json_source = std::make_unique<JSONDataSource>("/path/to/data");
 mapping_handler.register_data_source("JSON", std::move(json_source));
 
-// Pattern 2: Custom data source implementation
+// Pattern 4: Custom data source implementation with factory
 class CustomDataSource : public libtokamap::DataSource {
 public:
+    explicit CustomDataSource(const libtokamap::DataSourceFactoryArgs& args) {
+        // Initialize from factory args
+        config_param = args.at("config_param").get<std::string>();
+    }
+    
     libtokamap::TypedDataArray get(
         const libtokamap::DataSourceArgs& args,
         const libtokamap::MapArguments& arguments,
         libtokamap::RamCache* ram_cache) override {
         
         // Implementation specific logic
-        std::vector<double> data = fetch_data(args);
+        std::vector<double> data = fetch_data(args, config_param);
         return libtokamap::TypedDataArray{data};
     }
+    
+private:
+    std::string config_param;
 };
 
-auto custom_source = std::make_unique<CustomDataSource>();
-mapping_handler.register_data_source("CUSTOM", std::move(custom_source));
+// Factory function for custom data source
+extern "C" std::unique_ptr<libtokamap::DataSource> create_custom_source(
+    const libtokamap::DataSourceFactoryArgs& args) {
+    return std::make_unique<CustomDataSource>(args);
+}
 
-// Pattern 3: Multiple data source registration
-void register_all_sources(libtokamap::MappingHandler& handler) {
-    handler.register_data_source("JSON", std::make_unique<JSONDataSource>("/json/data"));
-    handler.register_data_source("HDF5", std::make_unique<HDF5DataSource>("/hdf5/data"));
-    handler.register_data_source("DB", std::make_unique<DatabaseSource>("connection_string"));
+// Pattern 5: TOML-driven multiple source registration
+void register_sources_from_toml(libtokamap::MappingHandler& handler) {
+    // This happens automatically when using init() with TOML config
+    handler.init("/path/to/config.toml");
+    
+    // All data_source_factories and data_sources from TOML are registered
+    // No manual registration needed
 }
 ```
 
@@ -294,14 +343,57 @@ public:
 };
 ```
 
-### 3. Configuration Management Patterns
+### Configuration Management Patterns
 
 ```cpp
-// Pattern 1: Environment-aware configuration
+// Pattern 1: TOML-based environment configuration (preferred)
+std::string create_environment_toml_config() {
+    std::string config_content = R"(
+mapping_directory = "/path/to/mappings"
+schemas_directory = "/path/to/schemas"
+cache_enabled = true
+trace_enabled = false
+)";
+
+    // Environment-specific overrides
+    const char* env = std::getenv("TOKAMAP_ENV");
+    if (env && std::string{env} == "production") {
+        config_content += R"(
+cache_size = 10000
+custom_function_libraries = ["/opt/tokamap/lib/libproduction.so"]
+
+[data_source_factories]
+json_factory = "/opt/tokamap/lib/libjson_source.so"
+hdf5_factory = "/opt/tokamap/lib/libhdf5_source.so"
+
+[data_sources.JSON]
+factory = "json_factory"
+args.data_root = "/opt/data/production"
+)";
+    } else if (env && std::string{env} == "development") {
+        config_content += R"(
+cache_size = 100
+trace_enabled = true
+
+[data_source_factories] 
+json_factory = "./build/libjson_source.so"
+
+[data_sources.JSON]
+factory = "json_factory"
+args.data_root = "./test_data"
+)";
+    }
+    
+    return config_content;
+}
+
+// Pattern 2: Legacy JSON configuration (maintained for compatibility)
 nlohmann::json create_environment_config() {
     nlohmann::json config;
     
     // Base configuration
+    config["mapping_directory"] = "/path/to/mappings";
+    config["schemas_directory"] = "/path/to/schemas";
     config["cache_enabled"] = true;
     config["cache_size"] = 1000;
     
@@ -310,25 +402,24 @@ nlohmann::json create_environment_config() {
     if (env && std::string{env} == "production") {
         config["mapping_directory"] = "/opt/tokamap/mappings";
         config["cache_size"] = 10000;
-        config["logging_level"] = "error";
     } else if (env && std::string{env} == "development") {
         config["mapping_directory"] = "./dev_mappings";
         config["cache_size"] = 100;
-        config["logging_level"] = "debug";
-    } else {
-        config["mapping_directory"] = "./mappings";
-        config["logging_level"] = "info";
+        config["trace_enabled"] = true;
     }
     
     return config;
 }
 
-// Pattern 2: Configuration validation
+// Pattern 3: Configuration validation with enhanced schema
 bool validate_configuration(const nlohmann::json& config) {
     // Required fields
-    if (!config.contains("mapping_directory")) {
-        std::cerr << "Missing required field: mapping_directory" << std::endl;
-        return false;
+    std::vector<std::string> required_fields = {"mapping_directory", "schemas_directory"};
+    for (const auto& field : required_fields) {
+        if (!config.contains(field)) {
+            std::cerr << "Missing required field: " << field << std::endl;
+            return false;
+        }
     }
     
     // Path validation
@@ -338,17 +429,92 @@ bool validate_configuration(const nlohmann::json& config) {
         return false;
     }
     
-    // Optional field validation
-    if (config.contains("cache_size")) {
-        auto cache_size = config["cache_size"].get<int>();
-        if (cache_size < 0) {
-            std::cerr << "Invalid cache size: " << cache_size << std::endl;
-            return false;
+    std::filesystem::path schemas_dir = config["schemas_directory"];
+    if (!std::filesystem::exists(schemas_dir)) {
+        std::cerr << "Schemas directory does not exist: " << schemas_dir << std::endl;
+        return false;
+    }
+    
+    // Factory validation
+    if (config.contains("data_source_factories")) {
+        for (const auto& [name, path] : config["data_source_factories"].items()) {
+            if (!std::filesystem::exists(path.get<std::string>())) {
+                std::cerr << "Factory library not found: " << path.get<std::string>() << std::endl;
+                return false;
+            }
         }
     }
     
     return true;
 }
+
+// Pattern 4: TOML configuration builder
+class TOMLConfigBuilder {
+public:
+    TOMLConfigBuilder& mapping_directory(const std::string& dir) {
+        config_["mapping_directory"] = dir;
+        return *this;
+    }
+    
+    TOMLConfigBuilder& schemas_directory(const std::string& dir) {
+        config_["schemas_directory"] = dir;
+        return *this;
+    }
+    
+    TOMLConfigBuilder& add_data_source_factory(const std::string& name, const std::string& path) {
+        config_["data_source_factories"][name] = path;
+        return *this;
+    }
+    
+    TOMLConfigBuilder& add_data_source(const std::string& name, const std::string& factory, 
+                                      const nlohmann::json& args) {
+        config_["data_sources"][name]["factory"] = factory;
+        config_["data_sources"][name]["args"] = args;
+        return *this;
+    }
+    
+    std::string build_toml() const {
+        // Convert internal JSON to TOML format
+        std::ostringstream toml;
+        
+        toml << "mapping_directory = \"" << config_["mapping_directory"].get<std::string>() << "\"\n";
+        toml << "schemas_directory = \"" << config_["schemas_directory"].get<std::string>() << "\"\n\n";
+        
+        if (config_.contains("data_source_factories")) {
+            toml << "[data_source_factories]\n";
+            for (const auto& [name, path] : config_["data_source_factories"].items()) {
+                toml << name << " = \"" << path.get<std::string>() << "\"\n";
+            }
+            toml << "\n";
+        }
+        
+        if (config_.contains("data_sources")) {
+            for (const auto& [name, ds_config] : config_["data_sources"].items()) {
+                toml << "[data_sources." << name << "]\n";
+                toml << "factory = \"" << ds_config["factory"].get<std::string>() << "\"\n";
+                if (ds_config.contains("args")) {
+                    for (const auto& [arg_name, arg_value] : ds_config["args"].items()) {
+                        toml << "args." << arg_name << " = \"" << arg_value.get<std::string>() << "\"\n";
+                    }
+                }
+                toml << "\n";
+            }
+        }
+        
+        return toml.str();
+    }
+    
+private:
+    nlohmann::json config_;
+};
+
+// Usage
+auto toml_config = TOMLConfigBuilder{}
+    .mapping_directory("/path/to/mappings")
+    .schemas_directory("/path/to/schemas")
+    .add_data_source_factory("json_factory", "/path/to/libjson.so")
+    .add_data_source("JSON", "json_factory", {{"data_root", "/path/to/data"}})
+    .build_toml();
 ```
 
 ## Integration Patterns
@@ -610,4 +776,67 @@ void test_mapping_functionality() {
 }
 ```
 
-This comprehensive API patterns reference provides developers with practical examples and best practices for using LibTokaMap effectively in various scenarios, from basic usage to advanced integration patterns.
+## Advanced Subset Operation Patterns
+
+### 1. Multi-dimensional Slicing
+
+```cpp
+// Pattern 1: Column selection from 2D array
+libtokamap::TypedDataArray array_2d{data, {rows, cols}};
+
+// Select column 9: [:][9]
+auto result_1d = handler.map("EXPERIMENT", "data/array[:][9]", 
+                            std::type_index{typeid(float)}, 1, {});
+
+// Pattern 2: Row range with stride: [2:8:2][:]
+auto result_strided = handler.map("EXPERIMENT", "data/array[2:8:2][:]",
+                                 std::type_index{typeid(float)}, 2, {});
+
+// Pattern 3: Negative stride (reverse): [10:0:-1]
+auto result_reversed = handler.map("EXPERIMENT", "data/array[10:0:-1]",
+                                  std::type_index{typeid(float)}, 1, {});
+
+// Pattern 4: Complex 3D slicing: [::2][5:10][1:8:2]
+auto result_3d = handler.map("EXPERIMENT", "data/volume[::2][5:10][1:8:2]",
+                            std::type_index{typeid(double)}, 3, {});
+```
+
+### 2. TypedDataArray Enhanced Operations
+
+```cpp
+// Pattern 1: Array cloning for safe operations
+libtokamap::TypedDataArray original{data};
+auto cloned = original.clone(); // New method from develop branch
+
+// Modify clone without affecting original
+cloned.apply<double>(2.0, 1.0);
+assert(original.to_vector<double>() != cloned.to_vector<double>());
+
+// Pattern 2: Safe multi-dimensional slicing with validation
+try {
+    std::vector<libtokamap::SubsetInfo> subsets = libtokamap::parse_slices("[:][9]", array.shape());
+    
+    // Validate before applying
+    for (size_t i = 0; i < subsets.size(); ++i) {
+        if (!subsets[i].validate()) {
+            throw std::invalid_argument("Invalid subset for dimension " + std::to_string(i));
+        }
+    }
+    
+    array.slice<float>(subsets);
+} catch (const libtokamap::ProcessingError& e) {
+    std::cerr << "Slicing failed: " << e.what() << std::endl;
+}
+
+// Pattern 3: Dimension reduction detection
+auto original_rank = array.rank();
+array.slice<float>(subsets);
+auto new_rank = array.rank();
+
+if (new_rank < original_rank) {
+    std::cout << "Dimension reduced from " << original_rank 
+              << "D to " << new_rank << "D" << std::endl;
+}
+```
+
+This comprehensive API patterns reference provides developers with practical examples and best practices for using LibTokaMap effectively in various scenarios, including the new factory-based configuration system, TOML support, and enhanced subset operations introduced in the develop branch.

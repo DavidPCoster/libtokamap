@@ -211,8 +211,22 @@ classDiagram
     class DataSourceRegistry {
         -unordered_map~string,unique_ptr~DataSource~~ sources
         +register_source(name, source)
+        +register_source(name, factory_name, args)
         +get_source(name) DataSource*
         +unregister_source(name)
+    }
+    
+    class DataSourceFactory {
+        <<function>>
+        +create(args) unique_ptr~DataSource~
+    }
+    
+    class DataSourceFactoryRegistry {
+        -unordered_map~string,DataSourceFactory~ factories
+        +register_factory(name, factory)
+        +register_factory(name, library_path)
+        +get_factory(name) DataSourceFactory
+        +unregister_factory(name)
     }
     
     class DataSource {
@@ -227,11 +241,11 @@ classDiagram
         -extract_data(json, path) TypedDataArray
     }
     
-    class FileDataSource {
-        -supported_formats vector~string~
+    class HDF5DataSource {
+        -filesystem::path file_path
         +get(args, context, cache) TypedDataArray
-        -read_binary_file(path) TypedDataArray
-        -detect_format(path) string
+        -read_hdf5_dataset(path) TypedDataArray
+        -handle_hdf5_errors() void
     }
     
     class DataSourceMapping {
@@ -245,8 +259,11 @@ classDiagram
     }
     
     DataSourceRegistry *-- DataSource
+    DataSourceRegistry --> DataSourceFactoryRegistry : uses
+    DataSourceFactoryRegistry *-- DataSourceFactory
+    DataSourceFactory ..> DataSource : creates
     DataSource <|-- JSONDataSource
-    DataSource <|-- FileDataSource
+    DataSource <|-- HDF5DataSource
     DataSourceMapping --> DataSource
     DataSourceMapping ..> DataSourceRegistry : uses
 ```
@@ -464,7 +481,7 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
     subgraph "Input Validation"
-        JSON_PARSE[Parse JSON]
+        TOML_PARSE[Parse TOML/JSON]
         SCHEMA_LOAD[Load Schema]
         VALIDATE[Validate Against Schema]
     end
@@ -473,33 +490,101 @@ flowchart LR
         REF_CHECK[Reference Checking]
         TYPE_CHECK[Type Compatibility]
         RANGE_CHECK[Range Validation]
+        FACTORY_CHECK[Factory Validation]
     end
     
     subgraph "Runtime Validation"
         PATH_CHECK[Path Existence]
         PERM_CHECK[Permission Check]
         DEP_CHECK[Dependency Check]
+        LIBRARY_CHECK[Library Loading Check]
     end
     
-    JSON_PARSE --> SCHEMA_LOAD
+    TOML_PARSE --> SCHEMA_LOAD
     SCHEMA_LOAD --> VALIDATE
     VALIDATE --> REF_CHECK
     REF_CHECK --> TYPE_CHECK
     TYPE_CHECK --> RANGE_CHECK
-    RANGE_CHECK --> PATH_CHECK
+    RANGE_CHECK --> FACTORY_CHECK
+    FACTORY_CHECK --> PATH_CHECK
     PATH_CHECK --> PERM_CHECK
     PERM_CHECK --> DEP_CHECK
+    DEP_CHECK --> LIBRARY_CHECK
     
-    DEP_CHECK --> SUCCESS[Configuration Valid]
+    LIBRARY_CHECK --> SUCCESS[Configuration Valid]
     
-    JSON_PARSE --> FAIL[Validation Failed]
+    TOML_PARSE --> FAIL[Validation Failed]
     VALIDATE --> FAIL
     REF_CHECK --> FAIL
     TYPE_CHECK --> FAIL
     RANGE_CHECK --> FAIL
+    FACTORY_CHECK --> FAIL
     PATH_CHECK --> FAIL
     PERM_CHECK --> FAIL
     DEP_CHECK --> FAIL
+    LIBRARY_CHECK --> FAIL
 ```
 
-This component relationship documentation provides a comprehensive view of how different parts of LibTokaMap interact, making it easier to understand the system for maintenance, debugging, and refactoring purposes.
+## Enhanced Subset Operations
+
+### 4. Advanced Slicing Architecture
+
+```mermaid
+stateDiagram-v2
+    [*] --> ParseSlice: parse_slices("[:][9]", shape)
+    ParseSlice --> ValidateSlice: SubsetInfo validation
+    ValidateSlice --> NegativeStrideCheck: Check stride direction
+    
+    NegativeStrideCheck --> PositiveStride: stride > 0
+    NegativeStrideCheck --> NegativeStride: stride < 0
+    
+    PositiveStride --> ComputeIndices: Standard indexing
+    NegativeStride --> ReverseCompute: Reverse indexing
+    
+    ComputeIndices --> ApplySlice: generate_indices()
+    ReverseCompute --> ApplySlice: handle wraparound
+    
+    ApplySlice --> UpdateShape: Dimension reduction
+    UpdateShape --> [*]: Sliced TypedDataArray
+    
+    ValidateSlice --> [*]: ValidationError
+    
+    note right of NegativeStride
+        Enhanced validation for
+        negative strides with
+        proper boundary checking
+    end note
+```
+
+### 5. Factory Loading Lifecycle
+
+```mermaid
+sequenceDiagram
+    participant Config as TOML Config
+    participant MH as MappingHandler
+    participant FR as FactoryRegistry
+    participant Lib as Dynamic Library
+    participant DS as DataSource
+    
+    Config->>MH: data_source_factories config
+    MH->>FR: register_factory(name, path)
+    FR->>Lib: dlopen(library_path)
+    Lib-->>FR: library handle
+    FR->>Lib: dlsym("create_data_source")
+    Lib-->>FR: factory function
+    
+    Config->>MH: data_sources config
+    MH->>FR: get_factory(factory_name)
+    FR-->>MH: factory function
+    MH->>FR: factory(args)
+    FR->>DS: create DataSource
+    DS-->>MH: DataSource instance
+    MH->>MH: register_data_source(name, ds)
+    
+    note over Lib
+        Hot-reloadable libraries
+        with proper cleanup
+    end note
+```
+
+This component relationship documentation provides a comprehensive view of how different parts of LibTokaMap interact, including the new factory pattern and enhanced subset operations, making it easier to understand the system for maintenance, debugging, and refactoring purposes.
