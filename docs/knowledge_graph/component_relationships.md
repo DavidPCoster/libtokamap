@@ -64,11 +64,11 @@ graph TB
 graph LR
     subgraph "MappingHandler Core"
         MH[MappingHandler]
-        INIT[init()]
-        RESET[reset()]
-        MAP[map()]
-        REG_DS[register_data_source()]
-        REG_CF[register_custom_function()]
+        INIT["init()"]
+        RESET["reset()"]
+        MAP["map()"]
+        REG_DS["register_data_source()"]
+        REG_CF["register_custom_function()"]
     end
     
     subgraph "Internal State"
@@ -160,7 +160,7 @@ stateDiagram-v2
     Created --> Populated: Data assignment
     Populated --> Transformed: apply() / slice()
     Transformed --> Accessed: data() / span()
-    Accessed --> Moved: std::move
+    Accessed --> Moved: std#colon;#colon;move
     Moved --> [*]: Destructor
     
     Created --> [*]: Empty destructor
@@ -182,7 +182,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-    START[load_experiment()] --> CHECK{Experiment loaded?}
+    START["load_experiment()"] --> CHECK{Experiment loaded?}
     CHECK -->|Yes| RETURN[Return existing]
     CHECK -->|No| LOAD_CFG[Load mappings.cfg.json]
     LOAD_CFG --> VALIDATE_CFG[Validate config schema]
@@ -285,10 +285,10 @@ graph TB
     end
     
     subgraph "Cache Operations"
-        GET[get()]
-        PUT[put()]
-        EVICT[evict()]
-        CLEAR[clear()]
+        GET["get()"]
+        PUT["put()"]
+        EVICT["evict()"]
+        CLEAR["clear()"]
     end
     
     DSM -->|check cache| RC
@@ -430,19 +430,19 @@ graph TB
 ```mermaid
 graph TD
     subgraph "Owned Resources"
-        TDA_OWN[TypedDataArray (owning)]
+        TDA_OWN["TypedDataArray (owning)"]
         BUFFER_MALLOC[malloc'd buffer]
         UNIQUE_PTR[unique_ptr wrappers]
     end
     
     subgraph "Borrowed Resources"
-        TDA_REF[TypedDataArray (non-owning)]
+        TDA_REF["TypedDataArray (non-owning)"]
         RAW_PTR[raw pointers]
         SPAN_VIEW[span views]
     end
     
     subgraph "Shared Resources"
-        CACHE[RamCache (shared_ptr)]
+        CACHE["RamCache (shared_ptr)"]
         CONFIG[Configuration data]
         SCHEMAS[Validation schemas]
     end
@@ -461,14 +461,14 @@ graph TD
 ```mermaid
 stateDiagram-v2
     [*] --> Scanning: Scan library paths
-    Scanning --> Loading: dlopen()
-    Loading --> Resolving: dlsym()
+    Scanning --> Loading: "dlopen()"
+    Loading --> Resolving: "dlsym()"
     Resolving --> Validating: Check signature
     Validating --> Registered: Add to registry
     Registered --> InUse: Function calls
     InUse --> InUse: Multiple calls
     InUse --> Unloading: Explicit unregister
-    Unloading --> [*]: dlclose()
+    Unloading --> [*]: "dlclose()"
     
     Loading --> Error: Load failure
     Resolving --> Error: Symbol not found
@@ -531,7 +531,7 @@ flowchart LR
 
 ```mermaid
 stateDiagram-v2
-    [*] --> ParseSlice: parse_slices("[:][9]", shape)
+    [*] --> ParseSlice: parse_slices(\"[#colon;][9]\", shape)
     ParseSlice --> ValidateSlice: SubsetInfo validation
     ValidateSlice --> NegativeStrideCheck: Check stride direction
     
@@ -567,24 +567,21 @@ sequenceDiagram
     participant DS as DataSource
     
     Config->>MH: data_source_factories config
-    MH->>FR: register_factory(name, path)
-    FR->>Lib: dlopen(library_path)
+    MH->>FR: "register_factory(name, path)"
+    FR->>Lib: "dlopen(library_path)"
     Lib-->>FR: library handle
-    FR->>Lib: dlsym("create_data_source")
+    FR->>Lib: "dlsym(\"create_data_source\")"
     Lib-->>FR: factory function
     
     Config->>MH: data_sources config
-    MH->>FR: get_factory(factory_name)
+    MH->>FR: "get_factory(factory_name)"
     FR-->>MH: factory function
-    MH->>FR: factory(args)
+    MH->>FR: "factory(args)"
     FR->>DS: create DataSource
     DS-->>MH: DataSource instance
-    MH->>MH: register_data_source(name, ds)
+    MH->>MH: "register_data_source(name, ds)"
     
-    note over Lib
-        Hot-reloadable libraries
-        with proper cleanup
-    end note
+    note over Lib: Hot-reloadable libraries with proper cleanup
 ```
 
 This component relationship documentation provides a comprehensive view of how different parts of LibTokaMap interact, including the new factory pattern and enhanced subset operations, making it easier to understand the system for maintenance, debugging, and refactoring purposes.
