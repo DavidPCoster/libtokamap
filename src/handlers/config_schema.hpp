@@ -7,14 +7,11 @@ constexpr auto ConfigSchema = R"(
         "mapping_directory": {
             "type": "string"
         },
-        "mapping_schema": {
+        "schemas_directory": {
             "type": "string"
         },
-        "globals_schema": {
-            "type": "string"
-        },
-        "mapping_config_schema": {
-            "type": "string"
+        "trace_enabled": {
+            "type": "boolean"
         },
         "cache_enabled": {
             "type": "boolean"
@@ -23,14 +20,37 @@ constexpr auto ConfigSchema = R"(
             "type": "integer",
             "minimum": 0
         },
-        "custom_library_paths": {
+        "custom_function_libraries": {
             "type": "array",
             "items": {
                 "type": "string"
             }
+        },
+        "data_source_factories": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": { "type": "string" }
+            }
+        },
+        "data_sources": {
+            "type": "object",
+            "patternProperties": {
+                "^.*$": { "$ref": "#/$defs/data_source" }
+            }
         }
     },
-    "required": ["mapping_directory", "mapping_schema", "globals_schema", "mapping_config_schema"],
-    "additionalProperties": false
+    "required": ["mapping_directory", "schemas_directory"],
+    "additionalProperties": false,
+    "$defs": {
+        "data_source": {
+            "type": "object",
+            "properties": {
+                "factory": { "type": "string" },
+                "args": { "type": "object" }
+            },
+            "required": ["factory"],
+            "additionalProperties": false
+        }
+    }
 }
 )";

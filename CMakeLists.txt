@@ -7,6 +7,10 @@ project(
     LANGUAGES CXX
 )
 
+if( "${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}" )
+    message( SEND_ERROR "In-source builds are not allowed." )
+endif()
+
 # Extra cmake modules to find libraries
 list(
     APPEND CMAKE_MODULE_PATH
@@ -15,9 +19,12 @@ list(
 )
 
 # Set project options
-include( StandardSettings )
 include( StaticAnalyzers )
 include( Utils )
+
+option( ENABLE_TESTING "Enable unit tests for the projects (from the `test` subfolder)." OFF )
+option( ENABLE_EXAMPLES "Enable examples for the projects (from the `examples` subfolder)." OFF )
+option( ENABLE_PROFILING "Compile with profiling enabled." OFF )
 
 add_clang_format_target()
 
@@ -30,16 +37,20 @@ set( CMAKE_CXX_STANDARD 20 )
 set( CMAKE_CXX_STANDARD_REQUIRED ON )
 set( CMAKE_CXX_EXTENSIONS OFF )
 
+# Export compile commands for tools like clang-tidy
+set( CMAKE_EXPORT_COMPILE_COMMANDS ON )
+
 # Group source files by functionality for better organization
 set( UTIL_SOURCES
     src/utils/indices.cpp
     src/utils/library_loader.cpp
     src/utils/mapping_locator.cpp
+    src/utils/profiler.cpp
     src/utils/ram_cache.cpp
     src/utils/render.cpp
-    src/utils/scale_offset.cpp
     src/utils/subset.cpp
     src/utils/syntax_parser.cpp
+    src/utils/typed_data_array.cpp
 )
 
 set( MAP_TYPE_SOURCES
@@ -47,7 +58,6 @@ set( MAP_TYPE_SOURCES
     src/map_types/data_source_mapping.cpp
     src/map_types/dim_mapping.cpp
     src/map_types/expr_mapping.cpp
-    src/map_types/map_arguments.cpp
     src/map_types/value_mapping.cpp
 )
 
@@ -62,9 +72,18 @@ set( SOURCES
 )
 
 set( UTIL_HEADERS
+    src/utils/algorithm.hpp
+    src/utils/compiler.hpp
+    src/utils/indices.hpp
+    src/utils/library_loader.hpp
+    src/utils/mapping_locator.hpp
+    src/utils/profiler.hpp
     src/utils/ram_cache.hpp
-    src/utils/scale_offset.hpp
+    src/utils/render.hpp
     src/utils/subset.hpp
+    src/utils/syntax_parser.hpp
+    src/utils/typed_data_array.hpp
+    src/utils/types.hpp
 )
 
 set( MAP_TYPE_HEADERS
@@ -81,10 +100,22 @@ set( HANDLER_HEADERS
     src/handlers/mapping_handler.hpp
 )
 
+set( EXCEPTIONS_HEADERS
+    src/exceptions/exceptions.hpp
+)
+
 set( HEADERS
     ${UTIL_HEADERS}
     ${MAP_TYPE_HEADERS}
     ${HANDLER_HEADERS}
+    ${EXCEPTIONS_HEADERS}
+)
+
+set( EXT_HEADERS
+    ext_include/nlohmann/json.hpp
+    ext_include/valijson_nlohmann_bundled.hpp
+    ext_include/exprtk/exprtk.hpp
+    ext_include/inja/inja.hpp
 )
 
 configure_file(
@@ -96,6 +127,18 @@ configure_file(
 configure_file(
     ${CMAKE_CURRENT_LIST_DIR}/include/config.hpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/include/config.hpp
+    @ONLY
+)
+
+configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/setup.py.in
+    ${CMAKE_CURRENT_LIST_DIR}/python/setup.py
+    @ONLY
+)
+
+configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/pyproject.toml.in
+    ${CMAKE_CURRENT_LIST_DIR}/python/pyproject.toml
     @ONLY
 )
 
@@ -116,9 +159,23 @@ target_compile_options( libtokamap PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wall -Werror -Wpedantic>
     $<$<CXX_COMPILER_ID:GNU>:-Wall -Werror -Wpedantic>
 )
+if( ENABLE_PROFILING )
+    target_compile_definitions( libtokamap PRIVATE LIBTOKAMAP_PROFILE_ENABLED )
+endif()
+target_sources( libtokamap PUBLIC
+    FILE_SET HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
+    FILES ${HEADERS}
+)
+target_sources( libtokamap PUBLIC
+    FILE_SET HEADERS
+    BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/ext_include
+    FILES ${EXT_HEADERS}
+)
 set( PUBLIC_HEADERS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/libtokamap.hpp
     ${CMAKE_CURRENT_BINARY_DIR}/include/version.hpp
+    ${CMAKE_CURRENT_BINARY_DIR}/include/config.hpp
 )
 set_target_properties( libtokamap PROPERTIES
     OUTPUT_NAME tokamap
@@ -129,9 +186,12 @@ add_library( LibTokaMap::libtokamap ALIAS libtokamap )
 
 install( TARGETS libtokamap
     EXPORT tokamapTargets
-    DESTINATION lib
-    INCLUDES DESTINATION include
-    PUBLIC_HEADER DESTINATION include
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include/libtokamap
+    PUBLIC_HEADER DESTINATION include/libtokamap
+    FILE_SET HEADERS DESTINATION include/libtokamap
 )
 
 install( EXPORT tokamapTargets
@@ -165,7 +225,4 @@ endif()
 list( TRANSFORM SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 list( TRANSFORM HEADERS PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 
-set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
-set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
-set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
 set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )

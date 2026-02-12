@@ -1,6 +1,7 @@
 CompileFlags:
   Add:
     - "--include-directory=/Users/jhollocombe/CLionProjects/UDA/install-debug/include"
+    - "--include-directory=/Users/jhollocombe/Projects/libtokamap/rust/target/cxxbridge"
 Diagnostics:
   MissingIncludes: Strict
   UnusedIncludes: Strict

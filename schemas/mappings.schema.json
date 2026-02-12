@@ -4,7 +4,13 @@
   "description": "JSON Schema for v1.0 of mappings",
   "type": "object",
   "patternProperties": {
-    "^.*$": { "oneOf": [{ "type": "string" }, { "$ref": "#/$defs/map_type" }] },
+    "^.*$": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "$ref": "#/$defs/map_type" }
+      ]
+    },
     "additionalProperties": false
   },
   "additionalProperties": false,

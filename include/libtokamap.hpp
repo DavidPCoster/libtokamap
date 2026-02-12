@@ -1,3 +1,4 @@
+#include <config.hpp>                        // IWYU pragma: export.
 #include <exceptions/exceptions.hpp>         // IWYU pragma: export.
 #include <handlers/mapping_handler.hpp>      // IWYU pragma: export.
 #include <map_types/base_mapping.hpp>        // IWYU pragma: export.
@@ -9,9 +10,11 @@
 #include <map_types/value_mapping.hpp>       // IWYU pragma: export.
 #include <utils/algorithm.hpp>               // IWYU pragma: export.
 #include <utils/indices.hpp>                 // IWYU pragma: export.
+#include <utils/library_loader.hpp>          // IWYU pragma: export.
+#include <utils/profiler.hpp>                // IWYU pragma: export.
 #include <utils/ram_cache.hpp>               // IWYU pragma: export.
 #include <utils/render.hpp>                  // IWYU pragma: export.
-#include <utils/scale_offset.hpp>            // IWYU pragma: export.
 #include <utils/subset.hpp>                  // IWYU pragma: export.
 #include <utils/syntax_parser.hpp>           // IWYU pragma: export.
+#include <utils/typed_data_array.hpp>        // IWYU pragma: export.
 #include <version.hpp>                       // IWYU pragma: export.

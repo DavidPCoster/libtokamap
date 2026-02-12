@@ -69,15 +69,38 @@ def map_all(mapper: libtokamap.Mapper, mapping: str):
         map(mapper, mapping, f"magnetics/coil[{coil}]/flux/dot_product")
 
 
-def main():
+def main(args):
+    cxxlibs = False
+    if len(args) == 2:
+        if args[1] == "--help":
+            print(f"Usage: python {args[0]} [--cxxlibs]")
+            sys.exit(0)
+        elif args[1] == "--cxxlibs":
+            cxxlibs = True
+        else:
+            print(f"Usage: python {args[0]} [--cxxlibs]")
+            sys.exit(1)
+
+    print("Calling LibTokaMap version:", libtokamap.__version__)
+
     root = Path().absolute().parent
+    build_root = root / "build" / "examples" / "simple_mapper"
+
     mapping_directory = root / "examples" / "simple_mapper" / "mappings"
     mapper = libtokamap.Mapper(str(mapping_directory))
 
     data_root = root / "examples" / "simple_mapper" / "data"
-    mapper.register_data_source("JSON", JSONDataSource(data_root))
 
-    mapper.register_custom_function("custom", "dot_product", dot_product)
+    if cxxlibs:
+        build_root = root / "build" / "examples" / "simple_mapper"
+        factory_library = build_root / ("libjson_data_source" + libtokamap.LibrarySuffix)
+        mapper.register_data_source_factory("JSONFactory", str(factory_library))
+        mapper.register_data_source("JSON", "JSONFactory", {"data_root": data_root})
+        custom_function_library = build_root / ("libcustom_library" + libtokamap.LibrarySuffix)
+        mapper.load_custom_function_library(custom_function_library)
+    else:
+        mapper.register_python_data_source("JSON", JSONDataSource(data_root))
+        mapper.register_custom_function("custom", "dot_product", dot_product)
 
     mapping = "EXAMPLE"
     try:
@@ -87,4 +110,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    import timeit
+    print(timeit.timeit("main(sys.argv)", number=10, setup="from __main__ import main"))

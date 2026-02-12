@@ -1,8 +1,8 @@
 #include "syntax_parser.hpp"
 
-#include <format>
-#include <iostream>
+#include <cstddef>
 #include <ctre/ctre.hpp>
+#include <format>
 #include <nlohmann/json.hpp>
 #include <stack>
 #include <string>
@@ -17,7 +17,8 @@ constexpr auto indices_re = ctll::fixed_string{R"(\{\{(.*?)\}\})"};
 constexpr auto simple_index_re = ctll::fixed_string{R"((.*)#(\d+)(.*))"};
 constexpr auto array_index_re = ctll::fixed_string{R"(([^\[\]]*?)\[([^\[\]]*?)\](\.[^\[\]]*)?)"};
 
-std::string expand_array(std::string input) {
+std::string expand_array(std::string input)
+{
     while (const auto& match = ctre::search<array_index_re>(input)) {
         std::string_view name = match.get<1>();
         std::string_view index = match.get<2>();
@@ -80,7 +81,8 @@ std::string trim(const std::string& line)
 
 } // namespace
 
-std::string libtokamap::process_string_node(std::string value) {
+std::string libtokamap::process_string_node(std::string value)
+{
     std::string result;
     auto iter = value.begin();
 
@@ -96,7 +98,7 @@ std::string libtokamap::process_string_node(std::string value) {
     return result;
 }
 
-nlohmann::json libtokamap::parse(nlohmann::json input)
+nlohmann::json libtokamap::expand_syntactic_sugar(nlohmann::json input)
 {
     if (input.is_string()) {
         // parse forward mapping or simple string value

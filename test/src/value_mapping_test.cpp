@@ -5,11 +5,12 @@
 #include <ostream>
 #include <string>
 #include <typeindex>
+#include <unordered_map>
 #include <vector>
 
 #include "map_types/map_arguments.hpp"
 #include "map_types/value_mapping.hpp"
-#include "test_helpers.hpp"
+#include "utils/ram_cache.hpp"
 
 namespace
 {
@@ -40,6 +41,23 @@ template <> struct StringMaker<std::type_index> {
 } // namespace Catch
 
 using namespace libtokamap;
+
+namespace
+{
+
+libtokamap::MapArguments make_map_arguments(const std::type_index data_type, const int rank)
+{
+    static std::unordered_map<std::string, std::unique_ptr<Mapping>> empty_entries;
+    static nlohmann::json empty_global_data = nlohmann::json::object();
+
+    constexpr bool trace_enabled = true;
+    constexpr bool cache_enabled = false;
+    constexpr RamCache* ram_cache = nullptr;
+
+    return MapArguments(empty_entries, empty_global_data, data_type, rank, trace_enabled, cache_enabled, ram_cache);
+}
+
+} // namespace
 
 TEST_CASE("ValueMapping can be constructed from JSON", "[value_mapping]")
 {
@@ -93,7 +111,7 @@ TEST_CASE("ValueMapping returns expected data for different 0D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(int)}, 0);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(int)}, 0);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -109,7 +127,7 @@ TEST_CASE("ValueMapping returns expected data for different 0D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(int)}, 0);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(int)}, 0);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -125,7 +143,7 @@ TEST_CASE("ValueMapping returns expected data for different 0D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(const char)}, 1);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(const char)}, 1);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -141,7 +159,7 @@ TEST_CASE("ValueMapping returns expected data for different 0D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(float)}, 0);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(float)}, 0);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -157,7 +175,7 @@ TEST_CASE("ValueMapping returns expected data for different 0D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(float)}, 0);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(float)}, 0);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -180,7 +198,7 @@ TEST_CASE("ValueMapping returns expected data for different 1D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(int)}, 1);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(int)}, 1);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -199,7 +217,7 @@ TEST_CASE("ValueMapping returns expected data for different 1D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(int)}, 1);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(int)}, 1);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -218,7 +236,7 @@ TEST_CASE("ValueMapping returns expected data for different 1D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(float)}, 1);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(float)}, 1);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());
@@ -237,7 +255,7 @@ TEST_CASE("ValueMapping returns expected data for different 1D types", "[value_m
         const auto& value_json = test_json.at("VALUE");
         auto mapping = std::make_unique<ValueMapping>(value_json);
 
-        MapArguments map_args = makeMapArguments(std::type_index{typeid(float)}, 1);
+        MapArguments map_args = make_map_arguments(std::type_index{typeid(float)}, 1);
         auto array = mapping->map(map_args);
 
         REQUIRE(!array.empty());

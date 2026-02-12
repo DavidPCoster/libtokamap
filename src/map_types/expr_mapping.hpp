@@ -3,14 +3,17 @@
 #include <cstddef>
 #include <exprtk/exprtk.hpp>
 #include <inja/inja.hpp>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include "exceptions/exceptions.hpp"
 #include "map_types/base_mapping.hpp"
 #include "map_types/map_arguments.hpp"
 #include "utils/render.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace libtokamap
 {
@@ -50,21 +53,12 @@ class ExprMapping : public Mapping
 };
 
 /**
- * @brief Function to
- * (1) perform the evaulation and computation of the expression string
- * using the exprtk library
- * (2) output the data in the correct format to the data_block
+ * @brief Function to perform the evaulation and computation of the expression string
+ * using the exprtk library.
  *
  * @tparam T expression parameters template type, in theory the expression can
  * be evaluated with any floating-point type. However this is currently
- * hard-coded to use float.
- *
- * @param out_interface IDAM_PLUGIN_INTERFACE for access to request and
- * data_block
- * @param entries unordered map of all mappings loaded for this experiment and
- * group
- * @param global_data global JSON object used in templating
- * @return int error_code
+ * hard-coded to use double.
  */
 template <typename T> TypedDataArray ExprMapping::eval_expr(const MapArguments& arguments) const
 {
@@ -76,6 +70,9 @@ template <typename T> TypedDataArray ExprMapping::eval_expr(const MapArguments& 
     bool first_vec_param{true};
     size_t result_size{1};
 
+    std::vector<nlohmann::json> parameter_traces;
+    std::vector<TypedDataArray> parameters;
+
     symbol_table.add_constants();
     for (const auto& [key, json_name] : m_parameters) {
         auto array = arguments.entries.at(json_name)->map(arguments);
@@ -83,11 +80,25 @@ template <typename T> TypedDataArray ExprMapping::eval_expr(const MapArguments& 
             return array;
         }
 
-        const T* raw_data = std::bit_cast<const T*>(array.buffer());
+        if (arguments.trace_enabled) {
+            parameter_traces.push_back({{key, array.trace()}});
+        }
+
+        if (array.type_index() != std::type_index{typeid(T)}) {
+            if (array.type_index() == std::type_index{typeid(float)}) {
+                array = array.convert<T, float>();
+            } else if (array.type_index() == std::type_index{typeid(int)}) {
+                array = array.convert<T, int>();
+            } else {
+                throw TokaMapError{"Unsupported type for parameter '" + key + "'"};
+            }
+        }
+
+        T* raw_data = std::bit_cast<T*>(array.buffer());
         size_t data_size = array.size();
 
         if (data_size > 1) {
-            symbol_table.add_vector(key, const_cast<T*>(raw_data), data_size);
+            symbol_table.add_vector(key, raw_data, data_size);
             if (first_vec_param) {
                 // use size of first vector parameter to define the size
                 // should use maximum but assumes all vectors in calculation same size
@@ -96,8 +107,10 @@ template <typename T> TypedDataArray ExprMapping::eval_expr(const MapArguments& 
             }
             vector_expr = true;
         } else {
-            symbol_table.add_variable(key, *const_cast<T*>(raw_data));
+            symbol_table.add_variable(key, *raw_data);
         }
+
+        parameters.push_back(std::move(array));
     }
 
     std::vector<T> result(result_size);
@@ -110,15 +123,27 @@ template <typename T> TypedDataArray ExprMapping::eval_expr(const MapArguments& 
 
     // replace patterns in expression if necessary, e.g. expression: RESULT:=X+Y
     std::string expr_string{"RESULT:=" + libtokamap::render(m_expr, arguments.global_data)};
-    parser.compile(expr_string, expression);
+    bool res = parser.compile(expr_string, expression);
+    if (!res) {
+        throw TokaMapError{"Failed to compile expression"};
+    }
 
     // expression.value() executes the calculation and returns a value
     // however, result added to the expression to handle vector operations
     expression.value();
+
+    TypedDataArray output;
     if (vector_expr) {
-        return TypedDataArray{result};
+        output = TypedDataArray{result};
+    } else {
+        output = TypedDataArray{result.front()};
     }
-    return TypedDataArray{result.at(0)};
+
+    if (arguments.trace_enabled) {
+        output.set_trace({{"map_type", "expression"}, {"expression", m_expr}, {"parameters", parameter_traces}});
+    }
+
+    return output;
 }
 
 } // namespace libtokamap

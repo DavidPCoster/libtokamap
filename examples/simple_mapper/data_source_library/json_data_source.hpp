@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <utility>
 
+extern "C" void LibTokaMapFactoryLoader(libtokamap::FactoryEntryInterface& factory);
+
 class JSONDataSource : public libtokamap::DataSource
 {
   public:

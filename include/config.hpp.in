@@ -1,3 +1,7 @@
 #pragma once
 
-constexpr const char* LibTokaMapSuffix = "@CMAKE_SHARED_LIBRARY_SUFFIX@";
+namespace libtokamap {
+
+constexpr const char* LibrarySuffix = "@CMAKE_SHARED_LIBRARY_SUFFIX@";
+
+}

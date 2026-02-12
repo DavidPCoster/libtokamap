@@ -154,7 +154,7 @@ TEST_CASE("Test array slice")
             constexpr size_t element1 = 5;
             std::vector<libtokamap::SubsetInfo> subsets = {
                 libtokamap::SubsetInfo{element1, element1 + 1, 1, dim1},
-                libtokamap::SubsetInfo{0, -1, 1, dim2},
+                libtokamap::SubsetInfo{0, std::nullopt, 1, dim2},
             };
             array.slice<float>(subsets);
 
@@ -176,7 +176,7 @@ TEST_CASE("Test array slice")
             constexpr size_t stride = 1;
             std::vector<libtokamap::SubsetInfo> subsets = {
                 libtokamap::SubsetInfo{start, stop, stride, dim1},
-                libtokamap::SubsetInfo{0, -1, 1, dim2},
+                libtokamap::SubsetInfo{0, std::nullopt, 1, dim2},
             };
             array.slice<float>(subsets);
 
@@ -197,7 +197,7 @@ TEST_CASE("Test array slice")
             constexpr size_t stop = start + range_len;
             constexpr size_t stride = 1;
             std::vector<libtokamap::SubsetInfo> subsets = {
-                libtokamap::SubsetInfo{0, -1, 1, dim1},
+                libtokamap::SubsetInfo{0, std::nullopt, 1, dim1},
                 libtokamap::SubsetInfo{start, stop, stride, dim2},
             };
             array.slice<float>(subsets);

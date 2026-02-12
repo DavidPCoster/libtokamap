@@ -6,8 +6,10 @@
 #include <ctre/ctre.hpp>
 #include <deque>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <libtokamap.hpp>
+#include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
@@ -16,6 +18,12 @@ using namespace std::string_literals;
 
 namespace
 {
+
+std::unique_ptr<libtokamap::DataSource> json_data_source_factory(const libtokamap::DataSourceFactoryArgs& args)
+{
+    auto data_root = libtokamap::get_arg<std::string>(args, "data_root");
+    return std::make_unique<JSONDataSource>(data_root);
+}
 
 libtokamap::TypedDataArray parse(const nlohmann::json& value)
 {
@@ -57,7 +65,7 @@ constexpr auto number_re = ctll::fixed_string{R"(\d+)"};
 } // namespace
 
 libtokamap::TypedDataArray JSONDataSource::get(const libtokamap::DataSourceArgs& map_args,
-                                               const libtokamap::MapArguments& /*arguments*/,
+                                               const libtokamap::MapArguments& arguments,
                                                libtokamap::RamCache* /*ram_cache*/)
 {
     if (!map_args.contains("file_name")) {
@@ -97,5 +105,17 @@ libtokamap::TypedDataArray JSONDataSource::get(const libtokamap::DataSourceArgs&
         tokens.pop_front();
     }
 
-    return parse(value);
+    auto result = parse(value);
+    if (arguments.trace_enabled) {
+        std::string version = std::format("{}.{}.{}", NLOHMANN_JSON_VERSION_MAJOR, NLOHMANN_JSON_VERSION_MINOR,
+                                          NLOHMANN_JSON_VERSION_PATCH);
+        result.set_trace({{"file", path}, {"json_library", {{"name", "nlohmann"}, {"version", version}}}});
+    }
+
+    return result;
+}
+
+void LibTokaMapFactoryLoader(libtokamap::FactoryEntryInterface& factory)
+{
+    factory.function = json_data_source_factory;
 }

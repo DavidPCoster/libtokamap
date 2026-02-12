@@ -139,6 +139,23 @@ public:
 };
 
 /**
+ * Schema validation errors
+ *
+ * Thrown when schema validation fails, including invalid schema formats,
+ * missing required fields, or invalid field types.
+ *
+ * Examples:
+ * - Invalid schema formats
+ * - Missing required fields
+ * - Invalid field types
+ */
+class SchemaError : public TokaMapError {
+public:
+    explicit SchemaError(const std::string& message)
+        : TokaMapError("Path error: " + message) {}
+};
+
+/**
  * Parameter validation errors
  *
  * Thrown when required parameters are missing, parameters have invalid values,

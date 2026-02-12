@@ -4,20 +4,19 @@
 #include <cstdint>
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <libtokamap.hpp>
-#include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <typeindex>
-#include <utility>
 #include <vector>
-
-#include "json_data_source.hpp"
 
 namespace
 {
-int map(libtokamap::MappingHandler& mapping_handler, const std::string& mapping, const std::string& path)
+
+uint64_t map(libtokamap::MappingHandler& mapping_handler, nlohmann::json& trace, const std::string& mapping,
+             const std::string& path)
 {
     std::type_index data_type = std::type_index{typeid(char)};
     int rank = 1;
@@ -30,60 +29,66 @@ int map(libtokamap::MappingHandler& mapping_handler, const std::string& mapping,
     padding.resize(std::max(key_length - static_cast<int64_t>(path.size()), int64_t{0}), ' ');
     std::cout << path << padding << " -> " << result.to_string() << "\n";
 
-    if (result.type_index() == std::type_index{typeid(int)}) {
-        return *std::bit_cast<int*>(result.buffer());
+    if (!result.trace().empty()) {
+        trace[path] = result.trace();
+    }
+
+    if (result.type_index() == std::type_index{typeid(uint64_t)}) {
+        return *std::bit_cast<uint64_t*>(result.buffer());
     }
     return 0;
 }
 
-void map_all(libtokamap::MappingHandler& mapping_handler, const std::string& mapping)
+nlohmann::json map_all(libtokamap::MappingHandler& mapping_handler, const std::string& mapping)
 {
-    map(mapping_handler, mapping, "magnetics/version");
-    auto num_coils = map(mapping_handler, mapping, "magnetics/coil");
+    nlohmann::json trace;
+
+    map(mapping_handler, trace, mapping, "magnetics/version");
+    auto num_coils = map(mapping_handler, trace, mapping, "magnetics/coil");
     for (auto coil = 0UL; coil < num_coils; ++coil) {
         std::string path = "magnetics/coil[" + std::to_string(coil) + "]";
-        map(mapping_handler, mapping, path + "/name");
-        auto num_positions = map(mapping_handler, mapping, path + "/position");
+        map(mapping_handler, trace, mapping, path + "/name");
+        map(mapping_handler, trace, mapping, path + "/area");
+        auto num_positions = map(mapping_handler, trace, mapping, path + "/position");
         for (auto position = 0UL; position < num_positions; ++position) {
             std::string pos_path = path + ("/position[" + std::to_string(position) + "]");
-            map(mapping_handler, mapping, pos_path + "/r");
-            map(mapping_handler, mapping, pos_path + "/z");
+            map(mapping_handler, trace, mapping, pos_path + "/r");
+            map(mapping_handler, trace, mapping, pos_path + "/z");
         }
-        map(mapping_handler, mapping, path + "/flux/time");
-        map(mapping_handler, mapping, path + "/flux/data");
-        map(mapping_handler, mapping, path + "/flux/dot_product");
+        map(mapping_handler, trace, mapping, path + "/flux/time");
+        map(mapping_handler, trace, mapping, path + "/flux/data");
+        map(mapping_handler, trace, mapping, path + "/flux/data_scaled");
+        map(mapping_handler, trace, mapping, path + "/flux/dot_product");
     }
+
+    return trace;
 }
+
 } // namespace
 
 int main()
 {
+    libtokamap::Profiler::init();
+
     try {
         libtokamap::MappingHandler mapping_handler;
 
         auto root = std::filesystem::path{__FILE__}.parent_path().parent_path();
+        auto build_root = root.parent_path().parent_path() / "build" / "examples" / "simple_mapper";
 
-        std::filesystem::path data_root = root / "data";
-        auto data_source = std::make_unique<JSONDataSource>(data_root);
-        mapping_handler.register_data_source("JSON", std::move(data_source));
+        std::filesystem::path config_path = build_root / "config.toml";
+        mapping_handler.init(config_path);
 
-        std::vector<std::string> custom_library_paths = {
-            root.parent_path().parent_path() / "build" / "examples" / "simple_mapper" };
+        const char* experiment = "EXAMPLE";
+        auto trace = map_all(mapping_handler, experiment);
 
-        auto schema_root = root.parent_path().parent_path() / "schemas";
-        nlohmann::json config = {{"mapping_directory", (root / "mappings").string()},
-                                 {"mapping_schema", (schema_root / "mappings.schema.json").string()},
-                                 {"globals_schema", (schema_root / "globals.schema.json").string()},
-                                 {"mapping_config_schema", (schema_root / "mappings.cfg.schema.json").string()},
-                                 {"custom_library_paths", custom_library_paths}};
-        mapping_handler.init(config);
-
-        const char* mapping = "EXAMPLE";
-        map_all(mapping_handler, mapping);
+        std::ofstream("trace.json") << trace.dump(4);
     } catch (std::exception& ex) {
         std::cerr << "error: " << ex.what() << "\n";
         return 1;
     }
+
+    libtokamap::Profiler::write("profile.json");
 
     return 0;
 }

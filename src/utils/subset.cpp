@@ -5,12 +5,11 @@
 #include <cstdlib>
 #include <ctre/ctre.hpp>
 #include <optional>
-#include <stdexcept>
 #include <string>
-#include "exceptions/exceptions.hpp"
 #include <vector>
 
-#include "map_types/map_arguments.hpp"
+#include "exceptions/exceptions.hpp"
+#include "utils/typed_data_array.hpp"
 
 namespace
 {
@@ -24,15 +23,18 @@ int64_t to_int(std::optional<std::string> value, int64_t default_value)
 }
 
 constexpr auto token_re = ctll::fixed_string{R"(\[([^\[\]]*)\])"};
-constexpr auto index_re = ctll::fixed_string{R"((\d+))"};
-constexpr auto slice_re = ctll::fixed_string{R"((\d*)(:(-?\d*)(:(-?\d*))?)?)"};
+constexpr auto index_re = ctll::fixed_string{R"((-?\d+))"};
+constexpr auto slice_re = ctll::fixed_string{R"((-?\d*)(:(-?\d*)(:(-?\d*))?)?)"};
 
 template <typename T> libtokamap::SubsetInfo parse_slice(const T& slice, size_t dimension)
 {
     const auto& index_match = ctre::match<index_re>(slice);
     if (index_match) {
         int64_t index = to_int(index_match.template get<1>().to_optional_string(), 0);
-        auto subset = libtokamap::SubsetInfo{index, index + 1, 1, dimension};
+
+        // AP: do we want to normalise here instead of in the actual subset class??
+        auto normalised_index = (index < 0) ? dimension + index : index;
+        auto subset = libtokamap::SubsetInfo{normalised_index, normalised_index + 1, 1, dimension};
         if (!subset.validate()) {
             throw libtokamap::ProcessingError{"invalid subset: " + slice.to_string()};
         }
@@ -40,9 +42,22 @@ template <typename T> libtokamap::SubsetInfo parse_slice(const T& slice, size_t 
     }
     const auto& slice_match = ctre::match<slice_re>(slice);
     if (slice_match) {
-        int64_t start = to_int(slice_match.template get<1>().to_optional_string(), 0);
-        int64_t stop = to_int(slice_match.template get<3>().to_optional_string(), -1);
         int64_t stride = to_int(slice_match.template get<5>().to_optional_string(), 1);
+
+        // m_start: if omitted, pass std::nullopt
+        auto start_str = slice_match.template get<1>().to_optional_string();
+        std::optional<int64_t> start;
+        if (start_str && !start_str.value().empty()) {
+            start = std::stoi(start_str.value());
+        }
+
+        // m_stop: if omitted, pass std::nullopt
+        auto stop_str = slice_match.template get<3>().to_optional_string();
+        std::optional<int64_t> stop;
+        if (stop_str && !stop_str.value().empty()) {
+            stop = std::stoi(stop_str.value());
+        }
+
         auto subset = libtokamap::SubsetInfo{start, stop, stride, dimension};
         if (!subset.validate()) {
             throw libtokamap::ProcessingError{"invalid subset: " + slice.to_string()};
@@ -99,7 +114,7 @@ void apply_subset(libtokamap::TypedDataArray& input, const std::optional<std::st
 void apply_scale_offset(libtokamap::TypedDataArray& input, std::optional<float> scale_factor,
                         std::optional<float> offset)
 {
-    if (!scale_factor && !offset) {
+    if (input.empty() || (!scale_factor && !offset)) {
         return;
     }
     using libtokamap::DataType;

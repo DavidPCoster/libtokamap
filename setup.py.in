@@ -1,0 +1,28 @@
+from pathlib import Path
+
+import numpy
+from setuptools import Extension, setup
+
+ROOT = Path("@CMAKE_SOURCE_DIR@")
+
+ext_modules = [
+    Extension(
+        "clibtokamap",
+        sources=["libtokamap.cpp"],
+        include_dirs=[
+            str(ROOT / "include"),
+            str(ROOT / "src"),
+            str(ROOT / "ext_include"),
+            str(ROOT / "build" / "include"),
+            numpy.get_include(),
+        ],
+        extra_objects=[str(ROOT / "build" / "libtokamap.a")],
+        extra_compile_args=["-std=c++20", "-O3"],
+    )
+]
+
+setup(
+    name="libtokamap",
+    version="0.1.0",
+    ext_modules=ext_modules,
+)
