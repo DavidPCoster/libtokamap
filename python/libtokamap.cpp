@@ -206,6 +206,8 @@ PyObject* array_to_numpy(libtokamap::TypedDataArray& array)
             return wrap_array(dims, NPY_UINT16, array);
         case DataType::UChar:
             return wrap_array(dims, NPY_UBYTE, array);
+        case DataType::Unknown:
+            return nullptr;
     }
     return nullptr;
 }

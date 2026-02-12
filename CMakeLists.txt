@@ -130,6 +130,12 @@ configure_file(
     @ONLY
 )
 
+configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/setup.py.in
+    ${CMAKE_CURRENT_LIST_DIR}/python/setup.py
+    @ONLY
+)
+
 add_library( libtokamap ${SOURCES} )
 target_include_directories( libtokamap
     PRIVATE
