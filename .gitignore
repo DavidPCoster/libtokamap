@@ -5,7 +5,6 @@ python/build/
 python/src/libtokamap.egg-info
 python/dist/
 python/setup.py
-python/pyproject.toml
 .clangd
 .ropeproject
 venv
@@ -16,3 +15,9 @@ trace.json
 profile.json
 graph/data
 uda
+.vs
+out
+CMakeSettings.json
+build_artifacts
+.DS_Store
+site/

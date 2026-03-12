@@ -1,7 +1,6 @@
 #pragma once
 
 #include <any>
-#include <cxxabi.h>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -13,6 +12,7 @@
 
 #include "exceptions/exceptions.hpp"
 #include "utils/typed_data_array.hpp"
+#include "utils/os_utils.hpp"
 
 namespace libtokamap
 {
@@ -104,8 +104,7 @@ DataSourceFactory load_data_source_factory(const std::filesystem::path& library_
 
 template <typename T> std::string to_string()
 {
-    int status = 0;
-    return abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status);
+    return demangle(typeid(T).name());
 }
 
 template <typename T> auto get_arg(const DataSourceFactoryArgs& args, const char* variable) -> T

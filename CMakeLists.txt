@@ -1,22 +1,24 @@
 cmake_minimum_required( VERSION 3.15 )
 
-# Project details
-project(
-    LibTokaMap
-    VERSION 0.1.0.0
-    LANGUAGES CXX
-)
-
-if( "${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}" )
-    message( SEND_ERROR "In-source builds are not allowed." )
-endif()
-
 # Extra cmake modules to find libraries
 list(
     APPEND CMAKE_MODULE_PATH
     ${CMAKE_SOURCE_DIR}/cmake
     ${CMAKE_SOURCE_DIR}/cmake/Modules
 )
+
+include( GitVersion )
+
+# Project details
+project(
+    libtokamap
+    VERSION ${GIT_VERSION}
+    LANGUAGES CXX
+)
+
+if( "${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}" )
+    message( SEND_ERROR "In-source builds are not allowed." )
+endif()
 
 # Set project options
 include( StaticAnalyzers )
@@ -25,6 +27,18 @@ include( Utils )
 option( ENABLE_TESTING "Enable unit tests for the projects (from the `test` subfolder)." OFF )
 option( ENABLE_EXAMPLES "Enable examples for the projects (from the `examples` subfolder)." OFF )
 option( ENABLE_PROFILING "Compile with profiling enabled." OFF )
+option( ENABLE_COVERAGE "Enable code coverage." OFF )
+option( ENABLE_DEBIAN_PACKAGING "Configure install files for debian packaging" OFF )
+
+## Generators
+if( UNIX AND NOT APPLE )
+    set( DEFAULT_CPACK_GENERATORS "DEB;RPM;TGZ" )
+elseif( APPLE )
+    set( DEFAULT_CPACK_GENERATORS "TGZ;ZIP" )
+else()
+    set( DEFAULT_CPACK_GENERATORS "ZIP" )
+endif()
+set( ENABLE_CPACK_GENERATORS "${DEFAULT_CPACK_GENERATORS}" CACHE STRING "enable the cpack generators" )
 
 add_clang_format_target()
 
@@ -52,6 +66,11 @@ set( UTIL_SOURCES
     src/utils/syntax_parser.cpp
     src/utils/typed_data_array.cpp
 )
+if( MSVC )
+    list( APPEND UTIL_SOURCES src/utils/windows_utils.cpp )
+else()
+    list( APPEND UTIL_SOURCES src/utils/unix_utils.cpp )
+endif()
 
 set( MAP_TYPE_SOURCES
     src/map_types/custom_mapping.cpp
@@ -77,6 +96,7 @@ set( UTIL_HEADERS
     src/utils/indices.hpp
     src/utils/library_loader.hpp
     src/utils/mapping_locator.hpp
+    src/utils/os_utils.hpp
     src/utils/profiler.hpp
     src/utils/ram_cache.hpp
     src/utils/render.hpp
@@ -118,6 +138,10 @@ set( EXT_HEADERS
     ext_include/inja/inja.hpp
 )
 
+if( "${PROJECT_VERSION_TWEAK}" STREQUAL "" )
+    set( PROJECT_VERSION_TWEAK 0 )
+endif()
+
 configure_file(
     ${CMAKE_CURRENT_LIST_DIR}/include/version.hpp.in
     ${CMAKE_CURRENT_BINARY_DIR}/include/version.hpp
@@ -131,18 +155,26 @@ configure_file(
 )
 
 configure_file(
-    ${CMAKE_CURRENT_LIST_DIR}/setup.py.in
+    ${CMAKE_CURRENT_LIST_DIR}/python/setup.py.in
     ${CMAKE_CURRENT_LIST_DIR}/python/setup.py
     @ONLY
 )
 
 configure_file(
-    ${CMAKE_CURRENT_LIST_DIR}/pyproject.toml.in
+    ${CMAKE_CURRENT_LIST_DIR}/python/pyproject.toml.in
     ${CMAKE_CURRENT_LIST_DIR}/python/pyproject.toml
     @ONLY
 )
 
 add_library( libtokamap ${SOURCES} )
+
+if( MSVC )
+    target_compile_options( libtokamap PRIVATE /W4 /WX /bigobj /utf-8 )
+    target_link_libraries( libtokamap PRIVATE Dbghelp )
+else()
+    target_compile_options( libtokamap PRIVATE -Wall -Wextra -Wpedantic -Werror )
+endif()
+
 target_include_directories( libtokamap
     PRIVATE
       ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -154,10 +186,6 @@ target_include_directories( libtokamap
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/ext_include>
       $<INSTALL_INTERFACE:include/libtokamap>
-)
-target_compile_options( libtokamap PRIVATE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:-Wall -Werror -Wpedantic>
-    $<$<CXX_COMPILER_ID:GNU>:-Wall -Werror -Wpedantic>
 )
 if( ENABLE_PROFILING )
     target_compile_definitions( libtokamap PRIVATE LIBTOKAMAP_PROFILE_ENABLED )
@@ -183,6 +211,8 @@ set_target_properties( libtokamap PROPERTIES
 )
 
 add_library( LibTokaMap::libtokamap ALIAS libtokamap )
+
+include( GNUInstallDirs )
 
 install( TARGETS libtokamap
     EXPORT tokamapTargets
@@ -213,6 +243,43 @@ install( FILES
     DESTINATION lib/cmake/libtokamap
 )
 
+# Install documentation
+if( ENABLE_DEBIAN_PACKAGING )
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/changelog"
+        COMMAND ./scripts/git2debchangelog.sh | grep -v -e 'Merge branch' -e 'Merge pull'  > ${CMAKE_CURRENT_BINARY_DIR}/changelog
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Generating changelog"
+    )
+
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/changelog.gz"
+        COMMAND gzip -cn9 changelog > changelog.gz
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/changelog"
+        COMMENT "Compressing changelog"
+    )
+
+    add_custom_target( changelog_gz ALL DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/changelog.gz" )
+
+    install( FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/changelog.gz"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/libtokamap-dev"
+    )
+
+    install( FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/libtokamap-dev"
+        RENAME copyright
+    )
+else( ENABLE_DEBIAN_PACKAGING )
+    install( FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/LICENSE
+        ${CMAKE_CURRENT_SOURCE_DIR}/README.md
+        DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+    )
+endif( ENABLE_DEBIAN_PACKAGING )
+
 # Unit testing setup
 if( ENABLE_TESTING )
     add_subdirectory( test )
@@ -226,3 +293,60 @@ list( TRANSFORM SOURCES PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 list( TRANSFORM HEADERS PREPEND ${CMAKE_CURRENT_LIST_DIR}/ )
 
 set_property( TARGET clang-format APPEND PROPERTY SOURCES ${SOURCES} ${HEADERS} )
+
+# Packaging setup
+set( CPACK_PACKAGE_NAME "libtokamap" )
+set( CPACK_PACKAGE_VENDOR "UKAEA" )
+set( CPACK_PACKAGE_DESCRIPTION_SUMMARY "Library for flexible data mapping and transformation with multiple data sources" )
+set( CPACK_PACKAGE_DESCRIPTION "\
+LibTokaMap is a flexible mapping library designed to handle complex data
+transformations through configurable JSON-based mapping definitions.
+It provides a plugin-based architecture for data sources and supports various
+mapping types including value mappings, data source mappings, expression
+mappings, and custom mappings." )
+set( CPACK_PACKAGE_VERSION "${PROJECT_VERSION}" )
+set( CPACK_PACKAGE_VERSION_MAJOR "${PROJECT_VERSION_MAJOR}" )
+set( CPACK_PACKAGE_VERSION_MINOR "${PROJECT_VERSION_MINOR}" )
+set( CPACK_PACKAGE_VERSION_PATCH "${PROJECT_VERSION_PATCH}" )
+set( CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}" )
+set( CMAKE_PROJECT_HOMEPAGE_URL "https://github.com/ukaea/libtokamap" )
+set( CPACK_OUTPUT_FILE_PREFIX "${CMAKE_BINARY_DIR}/packages" )
+set( CPACK_PACKAGE_CONTACT "jonathan.hollocombe@ukaea.uk" )
+set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE" )
+set( CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md" )
+set( CPACK_INSTALL_DEFAULT_DIRECTORY_PERMISSIONS
+ OWNER_READ OWNER_WRITE OWNER_EXECUTE
+ GROUP_READ GROUP_EXECUTE
+ WORLD_READ WORLD_EXECUTE
+)
+
+# DEB-specific settings
+set( CPACK_DEBIAN_PACKAGE_NAME "libtokamap-dev" )
+set( CPACK_DEBIAN_FILE_NAME DEB-DEFAULT )
+set( CPACK_DEBIAN_PACKAGE_DEPENDS "" )
+set( CPACK_DEBIAN_PACKAGE_MAINTAINER "Jonathan Hollocombe <${CPACK_PACKAGE_CONTACT}>" )
+set( CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION TRUE )
+
+# RPM-specific settings
+set( CPACK_RPM_PACKAGE_NAME "libtokamap-devel" )
+set( CPACK_RPM_FILE_NAME RPM-DEFAULT )
+set( CPACK_RPM_PACKAGE_LICENSE "MIT" )
+set( CPACK_RPM_PACKAGE_DESCRIPTION "${CPACK_PACKAGE_DESCRIPTION}" )
+set( CPACK_RPM_PACKAGE_GROUP "Development/Libraries" )
+# Stop RPM macros from stripping archive of debug symbols
+set( CPACK_RPM_SPEC_MORE_DEFINE
+     "%global _strip_static_debuginfo 0\n\
+     %global __brp_strip_static_archive %{nil}\n\
+     %define packager Jonathan Hollocombe <${CPACK_PACKAGE_CONTACT}>"
+)
+
+set( CPACK_GENERATOR ${ENABLE_CPACK_GENERATORS} )
+include( CPack )
+
+# Print packaging configuration summary
+message( STATUS "=== Packaging Configuration ===" )
+message( STATUS "Package name: ${CPACK_PACKAGE_NAME}" )
+message( STATUS "Version: ${CPACK_PACKAGE_VERSION}" )
+message( STATUS "Generators: ${ENABLE_CPACK_GENERATORS}" )
+message( STATUS "Output directory: ${CPACK_OUTPUT_FILE_PREFIX}" )
+message( STATUS "===============================" )

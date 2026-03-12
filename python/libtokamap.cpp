@@ -15,7 +15,6 @@
 #include <numpy/numpyconfig.h>
 #include <optional>
 #include <string>
-#include <typeindex>
 #include <utility>
 #include <vector>
 
@@ -71,8 +70,8 @@ libtokamap::TypedDataArray object_to_typed_data_array(PyObject* object)
         return libtokamap::TypedDataArray(reinterpret_cast<double*>(data), static_cast<size_t>(size), shape_vec);
     }
     if (typenum == NPY_UNICODE) {
-        int item_size = PyArray_ITEMSIZE(array);
-        int num_chars = item_size / 4;
+        npy_intp item_size = PyArray_ITEMSIZE(array);
+        npy_intp num_chars = item_size / 4;
         PyObject* py_unicode = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, data, num_chars);
         if (py_unicode == nullptr) {
             PyErr_SetString(LibTokaMapError, "Failed to create Unicode object");
@@ -106,7 +105,7 @@ bool set_dictionary_item(PyObject* dict, const std::string& key, const nlohmann:
     if (value.is_string()) {
         py_value = PyUnicode_FromString(value.get<std::string>().c_str());
     } else if (value.is_number_integer()) {
-        py_value = PyLong_FromLong(value.get<int64_t>());
+        py_value = PyLong_FromLongLong(value.get<int64_t>());
     } else if (value.is_number_float()) {
         py_value = PyFloat_FromDouble(value.get<double>());
     } else {
@@ -178,7 +177,7 @@ PyObject* wrap_array(const std::vector<npy_intp>& dims, int npy_type, libtokamap
 
 PyObject* array_to_numpy(libtokamap::TypedDataArray& array)
 {
-    auto type = libtokamap::type_index_map(array.type_index());
+    auto type = array.data_type();
     const auto& shape = array.shape();
     std::vector<npy_intp> dims(shape.size());
     std::ranges::copy(shape, dims.begin());
@@ -190,22 +189,20 @@ PyObject* array_to_numpy(libtokamap::TypedDataArray& array)
             return wrap_array(dims, NPY_FLOAT32, array);
         case DataType::Int64:
             return wrap_array(dims, NPY_INT64, array);
-        case DataType::Int:
-        case DataType::Long:
+        case DataType::Int32:
             return wrap_array(dims, NPY_INT32, array);
-        case DataType::Short:
+        case DataType::Int16:
             return wrap_array(dims, NPY_INT16, array);
-        case DataType::Char:
-            return wrap_array(dims, NPY_BYTE, array);
+        case DataType::Int8:
+            return wrap_array(dims, NPY_INT8, array);
         case DataType::UInt64:
             return wrap_array(dims, NPY_UINT64, array);
-        case DataType::UInt:
-        case DataType::ULong:
+        case DataType::UInt32:
             return wrap_array(dims, NPY_UINT32, array);
-        case DataType::UShort:
+        case DataType::UInt16:
             return wrap_array(dims, NPY_UINT16, array);
-        case DataType::UChar:
-            return wrap_array(dims, NPY_UBYTE, array);
+        case DataType::UInt8:
+            return wrap_array(dims, NPY_UINT8, array);
         case DataType::Unknown:
             return nullptr;
     }
@@ -324,13 +321,13 @@ int PyMapper_init(PyMapper* self, PyObject* args, PyObject* Py_UNUSED(kwds))
 }
 
 PyTypeObject PyMapperType = {
-    PyVarObject_HEAD_INIT(nullptr, 0) /* */
-        .tp_name = "clibtokamap.PyMapper",
+    .ob_base = PyVarObject_HEAD_INIT(nullptr, 0)
+    .tp_name = "clibtokamap.PyMapper",
     .tp_basicsize = sizeof(PyMapper),
+    .tp_dealloc = (destructor)PyMapper_dealloc,
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_init = (initproc)PyMapper_init,
     .tp_new = PyMapper_new,
-    .tp_dealloc = (destructor)PyMapper_dealloc,
 };
 
 PyObject* libtokamap_create(PyObject* Py_UNUSED(module), PyObject* args)
@@ -671,7 +668,7 @@ PyObject* libtokamap_map(PyObject* Py_UNUSED(module), PyObject* const* args, Py_
 
     try {
         auto* mapper = reinterpret_cast<PyMapper*>(py_mapper);
-        auto data_type = std::type_index{typeid(double)};
+        auto data_type = libtokamap::DataType::Double;
         int rank = 1;
         nlohmann::json attributes = {};
         if (py_attributes != nullptr) {

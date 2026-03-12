@@ -8,7 +8,6 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
-#include <typeindex>
 #include <vector>
 
 #include "exceptions/exceptions.hpp"
@@ -45,7 +44,7 @@ T try_convert(const std::string& input)
             throw std::invalid_argument("input is not a " + name<T>());
         }
         return result;
-    } catch (std::invalid_argument& e) {
+    } catch (std::invalid_argument&) {
         throw std::invalid_argument("input is not a " + name<T>());
     }
 }
@@ -70,7 +69,7 @@ std::vector<std::remove_all_extents_t<ARRAY_T>> try_convert(const std::string& i
 
         std::vector<T> result;
         auto pos = trimmed.find(',');
-        auto start = 0U;
+        size_t start = 0U;
         while (pos != std::string::npos) {
             auto sub = trimmed.substr(start, pos - start);
             start = pos + 1;
@@ -80,7 +79,7 @@ std::vector<std::remove_all_extents_t<ARRAY_T>> try_convert(const std::string& i
         auto rem = trimmed.substr(start);
         result.emplace_back(try_convert<T>(rem));
         return result;
-    } catch (std::invalid_argument& e) {
+    } catch (std::invalid_argument&) {
         throw std::invalid_argument("input is not a " + name<T>() + "[]");
     }
 }
@@ -100,8 +99,9 @@ libtokamap::TypedDataArray type_deduce_array(const nlohmann::json& temp_val)
 }
 
 libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val, const nlohmann::json& global_data,
-                                                 std::type_index data_type, int rank)
+                                                 libtokamap::DataType data_type, int rank)
 {
+    using libtokamap::DataType;
     switch (temp_val.type()) {
         case nlohmann::json::value_t::number_float:
             return libtokamap::TypedDataArray{temp_val.get<float>()};
@@ -120,10 +120,9 @@ libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val,
             // inja templating may replace with number
             try {
                 if (rank == 0) {
-                    using libtokamap::DataType;
-                    switch (libtokamap::type_index_map(data_type)) {
-                        case DataType::Int:
-                            return libtokamap::TypedDataArray{try_convert<int>(rendered_string)};
+                    switch (data_type) {
+                        case DataType::Int32:
+                            return libtokamap::TypedDataArray{try_convert<int32_t>(rendered_string)};
                         case DataType::Float:
                             return libtokamap::TypedDataArray{try_convert<float>(rendered_string)};
                         case DataType::Double:
@@ -132,10 +131,9 @@ libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val,
                             return libtokamap::TypedDataArray{rendered_string};
                     }
                 } else {
-                    using libtokamap::DataType;
-                    switch (libtokamap::type_index_map(data_type)) {
-                        case DataType::Int:
-                            return libtokamap::TypedDataArray{try_convert<int[]>(rendered_string)};
+                    switch (data_type) {
+                        case DataType::Int32:
+                            return libtokamap::TypedDataArray{try_convert<int32_t[]>(rendered_string)};
                         case DataType::Float:
                             return libtokamap::TypedDataArray{try_convert<float[]>(rendered_string)};
                         case DataType::Double:
@@ -144,7 +142,7 @@ libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val,
                             return libtokamap::TypedDataArray{rendered_string};
                     }
                 }
-            } catch (const std::invalid_argument& e) {
+            } catch (const std::invalid_argument&) {
                 // UDA_LOG(UDA_LOG_DEBUG,
                 //         "ValueMapping::map failure to convert"
                 //         "string to int in mapping : %s\n",
@@ -157,7 +155,9 @@ libtokamap::TypedDataArray type_deduce_primitive(const nlohmann::json& temp_val,
             throw libtokamap::JsonError{"unknown json type"};
     }
 
+#ifndef WIN32
     return {};
+#endif
 }
 
 } // namespace
