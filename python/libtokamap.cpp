@@ -306,12 +306,6 @@ int PyMapper_init(PyMapper* self, PyObject* args, PyObject* Py_UNUSED(kwds))
 
     try {
         self->cpp_mapper = new libtokamap::MappingHandler();
-
-        //auto root = std::filesystem::path{__FILE__};
-        //root = std::filesystem::absolute(root).parent_path().parent_path();
-        //auto schema_root = root / "schemas";
-        //nlohmann::json config = {{"mapping_directory", mapping_directory}, {"schemas_directory", schema_root.string()}};\
-        //self->cpp_mapper->init(config);
         std::filesystem::path config_path{config_path_string};
         self->cpp_mapper->init(config_path);
     } catch (const std::exception& e) {
