@@ -299,19 +299,15 @@ PyObject* PyMapper_new(PyTypeObject* type, PyObject* Py_UNUSED(args), PyObject* 
 
 int PyMapper_init(PyMapper* self, PyObject* args, PyObject* Py_UNUSED(kwds))
 {
-    char* mapping_directory = nullptr;
-    if (!PyArg_ParseTuple(args, "s", &mapping_directory)) {
+    char* config_path_string = nullptr;
+    if (!PyArg_ParseTuple(args, "s", &config_path_string)) {
         return -1;
     }
 
     try {
         self->cpp_mapper = new libtokamap::MappingHandler();
-
-        auto root = std::filesystem::path{__FILE__};
-        root = std::filesystem::absolute(root).parent_path().parent_path();
-        auto schema_root = root / "schemas";
-        nlohmann::json config = {{"mapping_directory", mapping_directory}, {"schemas_directory", schema_root.string()}};
-        self->cpp_mapper->init(config);
+        std::filesystem::path config_path{config_path_string};
+        self->cpp_mapper->init(config_path);
     } catch (const std::exception& e) {
         PyErr_SetString(LibTokaMapError, e.what());
         return -1;
@@ -678,11 +674,13 @@ PyObject* libtokamap_map(PyObject* Py_UNUSED(module), PyObject* const* args, Py_
             while (PyDict_Next(py_attributes, &pos, &key, &value)) {
                 auto key_string = to_string(key);
                 if (!key_string) {
+                    PyErr_SetString(LibTokaMapError, "Failed to convert key to string");
                     return nullptr;
                 }
                 if (PyUnicode_Check(value)) {
                     auto value_string = to_string(value);
                     if (!value_string) {
+                        PyErr_SetString(LibTokaMapError, "Failed to convert value to string");
                         return nullptr;
                     }
                     attributes[key_string.value()] = value_string.value();
@@ -697,6 +695,11 @@ PyObject* libtokamap_map(PyObject* Py_UNUSED(module), PyObject* const* args, Py_
         auto result =
             mapper->cpp_mapper->map(experiment_string.value(), path_string.value(), data_type, rank, attributes);
 
+        auto trace = result.trace();
+        if (!trace.empty()) {
+            std::cout << "trace = " << trace.dump(2) << std::endl;
+        }
+
         // FIXME : Handle data types!
         if (!result.empty()) {
             return array_to_numpy(result);
@@ -705,7 +708,8 @@ PyObject* libtokamap_map(PyObject* Py_UNUSED(module), PyObject* const* args, Py_
         PyErr_SetString(LibTokaMapError, e.what());
         return nullptr;
     }
-
+    
+    PyErr_SetString(LibTokaMapError, "No data returned");
     return nullptr;
 }
 
