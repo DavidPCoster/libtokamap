@@ -34,13 +34,13 @@ class Mapper:
     This class provides a way to map data from multiple data sources based on a mapping configuration.
     """
 
-    def __init__(self, mapping_path: str):
+    def __init__(self, config_path: str):
         """Initialize a new Mapper instance.
 
         Args:
-            mapping_path: The path to the directory containing the mapping files.
+            config_path: The path of the configuration file (JSON or TOML).
         """
-        self._mapper = clibtokamap.create(mapping_path)
+        self._mapper = clibtokamap.create(config_path)
 
     def register_data_source_factory(self, factory_name: str, factory_library: str) -> None:
         clibtokamap.register_data_source_factory(self._mapper, factory_name, factory_library)
