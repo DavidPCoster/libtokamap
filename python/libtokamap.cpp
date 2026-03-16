@@ -65,6 +65,10 @@ libtokamap::TypedDataArray object_to_typed_data_array(PyObject* object)
 
     std::vector<size_t> shape_vec(shape, shape + rank);
 
+    if (typenum == NPY_FLOAT32) {
+        // TODO: bind lifetime of array to self and avoid memory copy
+        return libtokamap::TypedDataArray(reinterpret_cast<float*>(data), static_cast<size_t>(size), shape_vec);
+    }
     if (typenum == NPY_FLOAT64) {
         // TODO: bind lifetime of array to self and avoid memory copy
         return libtokamap::TypedDataArray(reinterpret_cast<double*>(data), static_cast<size_t>(size), shape_vec);
