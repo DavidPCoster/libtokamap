@@ -172,7 +172,7 @@ if( MSVC )
     target_compile_options( libtokamap PRIVATE /W4 /WX /bigobj /utf-8 )
     target_link_libraries( libtokamap PRIVATE Dbghelp )
 else()
-    target_compile_options( libtokamap PRIVATE -Wall -Wextra -Wpedantic -Werror )
+	target_compile_options( libtokamap PRIVATE -Wall -Wextra -Wpedantic -Werror -fPIC )
 endif()
 
 target_include_directories( libtokamap
